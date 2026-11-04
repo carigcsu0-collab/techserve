@@ -1,0 +1,66 @@
+# nc2r API - hardened single-service stack.
+#
+# Setup on the Docker server:
+#   1. Put your real .env next to this file (it is git-ignored and never baked into the image).
+#   2. docker compose up -d --build
+#   3. docker compose logs -f api   (check the health status with: docker compose ps)
+#
+# Database: the connection (DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD...) comes from .env.
+# Migrations are NOT run automatically; run them manually only when you need them:
+#   docker compose exec api php artisan migrate --force
+
+name: nc2r-api
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nc2r-api:latest
+    container_name: nc2r-api
+    restart: unless-stopped
+
+    env_file:
+      - path: .env
+        required: true
+
+    # These override .env so a copied production .env cannot leave debug/error pages on.
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: error
+
+    # Host port 8000 maps to the APP_URL in .env (http://localhost:8000).
+    # To accept connections only from this machine, change this to "127.0.0.1:8000:80".
+    ports:
+      - "8000:80"
+
+    # Hardening
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/lock
+      - /var/www/html/bootstrap/cache:mode=0775,uid=33,gid=33
+    volumes:
+      - nc2r-storage:/var/www/html/storage
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  nc2r-storage:

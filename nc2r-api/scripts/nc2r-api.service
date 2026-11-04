@@ -1,0 +1,50 @@
+# systemd SYSTEM service: starts the NC2R Laravel API at BOOT (also after a power
+# cut or forced shutdown, no login needed) and restarts it forever if it dies.
+#
+# Install (as root, from anywhere):
+#   1. Edit WorkingDirectory, User and Group below (and ExecStart's php path:
+#      `command -v php`).
+#   2. sudo cp scripts/nc2r-api.service /etc/systemd/system/
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now nc2r-api.service
+#
+# Status / logs:
+#   systemctl status nc2r-api.service
+#   journalctl -u nc2r-api.service -f
+#
+# Remove:
+#   sudo systemctl disable --now nc2r-api.service
+#   sudo rm /etc/systemd/system/nc2r-api.service
+#
+# Non-root alternative: put this file in ~/.config/systemd/user/, delete the
+# User=/Group= lines, change WantedBy to default.target, use `systemctl --user`
+# and run `loginctl enable-linger "$USER"` so it starts at boot.
+#
+# PRODUCTION NOTE: `artisan serve` is PHP's built-in server. It is fine for a
+# small/private deployment; for public traffic put nginx/Apache + php-fpm in
+# front instead (see README "Production deployment").
+
+[Unit]
+Description=NC2R Laravel API (php artisan serve)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# EDIT these three for your server.
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/nc2r-api
+Environment=PHP_CLI_SERVER_WORKERS=4
+ExecStart=/usr/bin/php artisan serve --host=127.0.0.1 --port=8000
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

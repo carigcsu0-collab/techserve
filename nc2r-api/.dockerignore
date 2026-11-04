@@ -1,0 +1,33 @@
+# Secrets and local data must never enter the build context or the image
+.env
+.env.*
+**/.env
+database/*.sqlite
+database/*.sqlite-*
+storage
+bootstrap/cache/*.php
+public/storage
+public/hot
+
+# Build-time and dev-only files
+vendor
+node_modules
+tests
+.phpunit.result.cache
+phpunit.xml
+.editorconfig
+.gitattributes
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
+docker-compose*.yaml
+*.log
+.git
+.idea
+.vscode
+.fleet
+.nova
+.zed
+.DS_Store
+Thumbs.db

@@ -1,0 +1,23 @@
+# Confidential and local-only files
+**/.env
+!**/.env.example
+**/*.sqlite
+**/*.sqlite-*
+**/docker-compose.override.yml
+
+# Certificates, keystores and signing material
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+google-services.json
+GoogleService-Info.plist
+**/service-account*.json
+
+# Logs and OS junk
+*.log
+.DS_Store
+Thumbs.db
