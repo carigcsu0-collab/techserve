@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/lesson.dart';
 import '../providers/api_provider.dart';
 import '../providers/lesson_provider.dart';
+import '../services/error_messages.dart';
 
 class AdminLessonFormScreen extends ConsumerStatefulWidget {
   final Lesson? lesson; // null = create
@@ -31,6 +32,7 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
   String? _pickedFilePath;
   String? _pickedFileName;
   bool _saving = false;
+  double? _uploadProgress;
 
   bool get _isEdit => widget.lesson != null;
 
@@ -41,7 +43,8 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
     _title = TextEditingController(text: lesson?.title ?? '');
     _description = TextEditingController(text: lesson?.description ?? '');
     _orderIndex = TextEditingController(
-        text: '${lesson?.orderIndex ?? widget.nextOrderIndex}');
+      text: '${lesson?.orderIndex ?? widget.nextOrderIndex}',
+    );
     _mediaUrl = TextEditingController(text: lesson?.mediaUrl ?? '');
     _mediaType = lesson?.mediaType ?? 'video';
   }
@@ -57,8 +60,30 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
 
   List<String> get _allowedExtensions => _mediaType == 'video'
       ? const [
-          'mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'f4v', 'mpeg', 'mpg',
-          'mpe', 'm2v', 'ts', 'm2ts', 'mts', '3gp', '3g2', 'ogv', 'vob', 'asf', 'rm', 'rmvb', 'divx',
+          'mp4',
+          'm4v',
+          'mov',
+          'webm',
+          'mkv',
+          'avi',
+          'wmv',
+          'flv',
+          'f4v',
+          'mpeg',
+          'mpg',
+          'mpe',
+          'm2v',
+          'ts',
+          'm2ts',
+          'mts',
+          '3gp',
+          '3g2',
+          'ogv',
+          'vob',
+          'asf',
+          'rm',
+          'rmvb',
+          'divx',
         ]
       : const ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
@@ -78,7 +103,14 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _uploadProgress = null;
+    });
+    void onProgress(int sent, int total) {
+      if (mounted && total > 0) setState(() => _uploadProgress = sent / total);
+    }
+
     try {
       final api = ref.read(apiServiceProvider);
       if (_isEdit) {
@@ -88,8 +120,11 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
           description: _description.text.trim(),
           mediaType: _mediaType,
           orderIndex: int.parse(_orderIndex.text.trim()),
-          mediaUrl: _mediaUrl.text.trim().isEmpty ? null : _mediaUrl.text.trim(),
+          mediaUrl: _mediaUrl.text.trim().isEmpty
+              ? null
+              : _mediaUrl.text.trim(),
           mediaFilePath: _pickedFilePath,
+          onUploadProgress: onProgress,
         );
       } else {
         await api.createLesson(
@@ -97,16 +132,20 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
           description: _description.text.trim(),
           mediaType: _mediaType,
           orderIndex: int.parse(_orderIndex.text.trim()),
-          mediaUrl: _mediaUrl.text.trim().isEmpty ? null : _mediaUrl.text.trim(),
+          mediaUrl: _mediaUrl.text.trim().isEmpty
+              ? null
+              : _mediaUrl.text.trim(),
           mediaFilePath: _pickedFilePath,
+          onUploadProgress: onProgress,
         );
       }
       ref.invalidate(lessonProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -125,7 +164,9 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
             TextFormField(
               controller: _title,
               decoration: const InputDecoration(
-                  labelText: 'Title', border: OutlineInputBorder()),
+                labelText: 'Title',
+                border: OutlineInputBorder(),
+              ),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
@@ -134,7 +175,9 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
               controller: _description,
               maxLines: 4,
               decoration: const InputDecoration(
-                  labelText: 'Description', border: OutlineInputBorder()),
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+              ),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
@@ -146,7 +189,9 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
                     controller: _orderIndex,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                        labelText: 'Order', border: OutlineInputBorder()),
+                      labelText: 'Order',
+                      border: OutlineInputBorder(),
+                    ),
                     validator: (v) =>
                         (int.tryParse(v ?? '') ?? 0) < 1 ? 'Min 1' : null,
                   ),
@@ -156,7 +201,9 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
                   child: DropdownButtonFormField<String>(
                     initialValue: _mediaType,
                     decoration: const InputDecoration(
-                        labelText: 'Media type', border: OutlineInputBorder()),
+                      labelText: 'Media type',
+                      border: OutlineInputBorder(),
+                    ),
                     items: const [
                       DropdownMenuItem(value: 'video', child: Text('Video')),
                       DropdownMenuItem(value: 'image', child: Text('Image')),
@@ -171,8 +218,7 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('Media source',
-                style: Theme.of(context).textTheme.labelLarge),
+            Text('Media source', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               icon: const Icon(Icons.upload_file),
@@ -200,6 +246,15 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
               },
             ),
             const SizedBox(height: 24),
+            if (_saving && _uploadProgress != null) ...[
+              LinearProgressIndicator(value: _uploadProgress),
+              const SizedBox(height: 6),
+              Text(
+                'Uploading ${(_uploadProgress! * 100).round()}%',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+            ],
             FilledButton(
               onPressed: _saving ? null : _save,
               child: _saving

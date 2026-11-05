@@ -143,6 +143,11 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
       state = AsyncValue.data(user.copyWith(certificateUrl: certificateUrl));
     }
   }
+
+  Future<void> updateName(String name) async {
+    final updated = await ref.read(apiServiceProvider).updateProfile(name);
+    state = AsyncValue.data(updated);
+  }
 }
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, AppUser?>(

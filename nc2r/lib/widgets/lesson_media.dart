@@ -47,8 +47,8 @@ class _LessonMediaState extends State<LessonMedia> {
   }
 
   Future<void> _initVideo(String url) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     try {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
       await controller.initialize();
       // The url this controller was created for may no longer match the
       // widget's current lesson (rapid updates, or disposed mid-flight).
@@ -65,8 +65,17 @@ class _LessonMediaState extends State<LessonMedia> {
         );
       });
     } catch (e) {
+      controller.dispose();
       if (mounted) setState(() => _error = e);
     }
+  }
+
+  void _retryVideo() {
+    final url = widget.lesson.mediaUrl;
+    if (url == null) return;
+    _disposeVideo();
+    setState(() => _error = null);
+    _initVideo(url);
   }
 
   void _disposeVideo() {
@@ -97,15 +106,21 @@ class _LessonMediaState extends State<LessonMedia> {
         height: 220,
         width: double.infinity,
         placeholder: (_, _) => const _ShimmerMediaPlaceholder(),
-        errorWidget: (_, _, _) =>
-            const _MediaPlaceholder(icon: Icons.broken_image, label: 'Failed to load image'),
+        errorWidget: (_, _, _) => const _MediaPlaceholder(
+          icon: Icons.broken_image,
+          label: 'Failed to load image',
+        ),
       );
     }
 
     final chewie = _chewieController;
     if (_error != null) {
-      return const _MediaPlaceholder(
-          icon: Icons.error_outline, label: 'Failed to load video');
+      return _MediaPlaceholder(
+        icon: Icons.error_outline,
+        label: 'Video could not be loaded',
+        actionLabel: 'Retry',
+        onAction: _retryVideo,
+      );
     }
     if (chewie == null) {
       return const _ShimmerMediaPlaceholder();
@@ -140,8 +155,15 @@ class _ShimmerMediaPlaceholder extends StatelessWidget {
 class _MediaPlaceholder extends StatelessWidget {
   final IconData icon;
   final String? label;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
-  const _MediaPlaceholder({required this.icon, this.label});
+  const _MediaPlaceholder({
+    required this.icon,
+    this.label,
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -153,9 +175,10 @@ class _MediaPlaceholder extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 48, color: Theme.of(context).colorScheme.outline),
-          if (label != null) ...[
+          if (label != null) ...[const SizedBox(height: 8), Text(label!)],
+          if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 8),
-            Text(label!),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],
       ),

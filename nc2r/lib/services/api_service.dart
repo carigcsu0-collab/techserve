@@ -129,6 +129,23 @@ class ApiService {
     return AppUser.fromJson(data);
   }
 
+  Future<AppUser> updateProfile(String name) async {
+    final data = await _put('/user/profile', {'name': name});
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _put('/user/password', {
+      'current_password': currentPassword,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
+  }
+
   // ---- Lessons ----
 
   Future<List<Lesson>> fetchLessons() async {
@@ -155,6 +172,7 @@ class ApiService {
 
   // ---- Admin: lessons ----
 
+  /// [onUploadProgress] receives bytes sent so far and the total, for file uploads.
   Future<Lesson> createLesson({
     required String title,
     required String description,
@@ -162,6 +180,7 @@ class ApiService {
     required int orderIndex,
     String? mediaUrl,
     String? mediaFilePath,
+    void Function(int sent, int total)? onUploadProgress,
   }) async {
     final data = await _sendForm('POST', '/admin/lessons', {
       'title': title,
@@ -171,7 +190,7 @@ class ApiService {
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
       if (mediaFilePath != null)
         'media_file': await MultipartFile.fromFile(mediaFilePath),
-    });
+    }, onUploadProgress: onUploadProgress);
     return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
   }
 
@@ -183,6 +202,7 @@ class ApiService {
     int? orderIndex,
     String? mediaUrl,
     String? mediaFilePath,
+    void Function(int sent, int total)? onUploadProgress,
   }) async {
     // Multipart PUT isn't parsed by PHP — Laravel method-spoofs via _method.
     final data = await _sendForm('POST', '/admin/lessons/$id', {
@@ -194,7 +214,7 @@ class ApiService {
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
       if (mediaFilePath != null)
         'media_file': await MultipartFile.fromFile(mediaFilePath),
-    });
+    }, onUploadProgress: onUploadProgress);
     return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
   }
 
@@ -319,13 +339,15 @@ class ApiService {
   Future<Map<String, dynamic>> _sendForm(
     String method,
     String path,
-    Map<String, dynamic> fields,
-  ) async {
+    Map<String, dynamic> fields, {
+    void Function(int sent, int total)? onUploadProgress,
+  }) async {
     try {
       final response = await _dio.request(
         path,
         data: FormData.fromMap(fields),
         options: Options(method: method),
+        onSendProgress: onUploadProgress,
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {

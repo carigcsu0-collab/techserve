@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../providers/lesson_provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
+import '../services/error_messages.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/app_page_route.dart';
 import '../widgets/lesson_tile.dart';
 import '../widgets/shimmer_lesson_list.dart';
@@ -20,8 +22,9 @@ class LessonListScreen extends ConsumerWidget {
     final user = ref.watch(authProvider).value;
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text('NC II Reviewer'),
+        title: const Text('TechServe'),
         actions: [
           if (user?.certificateUrl != null)
             IconButton(
@@ -29,9 +32,8 @@ class LessonListScreen extends ConsumerWidget {
               tooltip: 'View certificate',
               onPressed: () => Navigator.of(context).push(
                 FadePageRoute(
-                  builder: (_) => CertificateScreen(
-                    certificateUrl: user!.certificateUrl!,
-                  ),
+                  builder: (_) =>
+                      CertificateScreen(certificateUrl: user!.certificateUrl!),
                 ),
               ),
             ),
@@ -48,7 +50,7 @@ class LessonListScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(error.toString(), textAlign: TextAlign.center),
+              Text(friendlyError(error), textAlign: TextAlign.center),
               const SizedBox(height: 12),
               FilledButton.tonal(
                 onPressed: () => ref.invalidate(lessonProvider),
@@ -78,14 +80,16 @@ class LessonListScreen extends ConsumerWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    'Complete the previous lesson to unlock this one.'),
+                                  'Complete the previous lesson to unlock this one.',
+                                ),
                               ),
                             );
                             return;
                           }
                           Navigator.of(context).push(
                             SlidePageRoute(
-                              builder: (_) => LessonDetailScreen(lesson: lesson),
+                              builder: (_) =>
+                                  LessonDetailScreen(lesson: lesson),
                             ),
                           );
                         },

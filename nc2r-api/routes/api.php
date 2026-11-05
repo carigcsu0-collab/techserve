@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\SocialAuthController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,8 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
+    Route::put('/user/password', [UserController::class, 'updatePassword']);
 
     Route::get('/lessons', [LessonController::class, 'index']);
     Route::get('/lessons/{lesson}/quiz', [QuizController::class, 'show']);
