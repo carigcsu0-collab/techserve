@@ -28,43 +28,87 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  /// Returns the email to verify when the account needs a code, otherwise null.
+  Future<String?> login(String email, String password) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final api = ref.read(apiServiceProvider);
       final result = await api.login(email, password);
       api.setToken(result.token);
       await ref.read(tokenStorageProvider).write(result.token);
-      return result.user;
-    });
+      state = AsyncValue.data(result.user);
+      return null;
+    } on ApiException catch (e) {
+      if (e.code == 'email_unverified') {
+        state = const AsyncValue.data(null);
+        return email;
+      }
+      state = AsyncValue.error(e, StackTrace.current);
+      return null;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
   }
 
-  Future<void> register(
-      String name, String email, String password, String passwordConfirmation) async {
+  /// Returns the email to verify when the account was created but not yet confirmed.
+  Future<String?> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final api = ref.read(apiServiceProvider);
-      final result = await api.register(name, email, password, passwordConfirmation);
+      final result = await api.register(
+        name,
+        email,
+        password,
+        passwordConfirmation,
+      );
+      if (result == null) {
+        state = const AsyncValue.data(null);
+        return email;
+      }
       api.setToken(result.token);
       await ref.read(tokenStorageProvider).write(result.token);
-      return result.user;
-    });
+      state = AsyncValue.data(result.user);
+      return null;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
   }
+
+  /// Confirms the emailed code and signs the user in. Errors are rethrown
+  /// so the OTP screen can show them without replacing the pending step.
+  Future<void> verifyEmail(String email, String code) async {
+    final api = ref.read(apiServiceProvider);
+    final result = await api.verifyEmail(email, code);
+    api.setToken(result.token);
+    await ref.read(tokenStorageProvider).write(result.token);
+    state = AsyncValue.data(result.user);
+  }
+
+  Future<void> resendVerification(String email) =>
+      ref.read(apiServiceProvider).resendVerification(email);
 
   /// Runs a social sign-in. A cancelled provider screen leaves state untouched.
   Future<void> loginWithGoogle() => _social(
-        (social) => social.googleIdToken(),
-        (api, token) => api.loginWithGoogle(token),
-      );
+    (social) => social.googleIdToken(),
+    (api, token) => api.loginWithGoogle(token),
+  );
 
   Future<void> loginWithFacebook() => _social(
-        (social) => social.facebookAccessToken(),
-        (api, token) => api.loginWithFacebook(token),
-      );
+    (social) => social.facebookAccessToken(),
+    (api, token) => api.loginWithFacebook(token),
+  );
 
   Future<void> _social(
     Future<String> Function(SocialAuthService) getToken,
-    Future<({AppUser user, String token})> Function(ApiService, String) exchange,
+    Future<({AppUser user, String token})> Function(ApiService, String)
+    exchange,
   ) async {
     final previous = state;
     state = const AsyncValue.loading();
@@ -101,7 +145,9 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
   }
 }
 
-final authProvider = AsyncNotifierProvider<AuthNotifier, AppUser?>(AuthNotifier.new);
+final authProvider = AsyncNotifierProvider<AuthNotifier, AppUser?>(
+  AuthNotifier.new,
+);
 
 /// Convenience selector: true while a user is logged in.
 final isLoggedInProvider = Provider<bool>(

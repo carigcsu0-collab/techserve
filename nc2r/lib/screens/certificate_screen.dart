@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/auth_provider.dart';
 import '../widgets/app_logo.dart';
+import '../widgets/motion.dart';
 import '../widgets/tap_scale.dart';
 
 class CertificateScreen extends ConsumerStatefulWidget {
@@ -55,41 +56,49 @@ class _CertificateScreenState extends ConsumerState<CertificateScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const AnimatedAppLogo(size: 96),
-                      const SizedBox(height: 20),
-                      Text('Course Completed!',
-                          style: Theme.of(context).textTheme.headlineMedium),
-                      const SizedBox(height: 8),
-                      Text(
-                        user?.name ?? '',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'NC II Reviewer — Computer Systems Servicing',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-                      PressableScale(
-                        child: FilledButton.icon(
-                          icon: const Icon(Icons.picture_as_pdf),
-                          label: const Text('View / Download Certificate'),
-                          onPressed:
-                              url == null ? null : () => _openCertificate(url),
+              child: PopIn(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 32,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const AnimatedAppLogo(size: 96),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Course Completed!',
+                          style: Theme.of(context).textTheme.headlineMedium,
                         ),
-                      ),
-                      if (url == null)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text('Certificate is being generated…'),
+                        const SizedBox(height: 8),
+                        Text(
+                          user?.name ?? '',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'NC II Reviewer — Computer Systems Servicing',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        PressableScale(
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.picture_as_pdf),
+                            label: const Text('View / Download Certificate'),
+                            onPressed: url == null
+                                ? null
+                                : () => _openCertificate(url),
+                          ),
+                        ),
+                        if (url == null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text('Certificate is being generated…'),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

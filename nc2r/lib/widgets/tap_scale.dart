@@ -19,12 +19,36 @@ class TapScale extends StatefulWidget {
   State<TapScale> createState() => _TapScaleState();
 }
 
-class _TapScaleState extends State<TapScale> {
-  bool _pressed = false;
+class _TapScaleState extends State<TapScale>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
 
-  void _setPressed(bool value) {
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: 1,
+    );
+    _scale = _bounceScale(_controller, widget.scale);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _setPressed(bool pressed) {
     if (widget.onTap == null) return;
-    setState(() => _pressed = value);
+    // Pressing eases down; releasing overshoots slightly back up.
+    if (pressed) {
+      _controller.reverse();
+    } else {
+      _controller.forward();
+    }
   }
 
   @override
@@ -34,14 +58,24 @@ class _TapScaleState extends State<TapScale> {
       onTapDown: (_) => _setPressed(true),
       onTapUp: (_) => _setPressed(false),
       onTapCancel: () => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? widget.scale : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: widget.child,
-      ),
+      child: ScaleTransition(scale: _scale, child: widget.child),
     );
   }
+}
+
+/// Press-down / release-bounce scale shared by [TapScale] and [PressableScale].
+/// Value 1 is the resting size; reversing eases toward [pressedScale], and
+/// forward overshoots back past 1 with [Curves.easeOutBack].
+Animation<double> _bounceScale(
+  AnimationController controller,
+  double pressedScale,
+) {
+  final curved = CurvedAnimation(
+    parent: controller,
+    curve: Curves.easeOutBack,
+    reverseCurve: Curves.easeOut,
+  );
+  return Tween<double>(begin: pressedScale, end: 1).animate(curved);
 }
 
 /// Purely observes raw pointer down/up/cancel events (via [Listener], which
@@ -58,21 +92,35 @@ class PressableScale extends StatefulWidget {
   State<PressableScale> createState() => _PressableScaleState();
 }
 
-class _PressableScaleState extends State<PressableScale> {
-  bool _pressed = false;
+class _PressableScaleState extends State<PressableScale>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+      value: 1,
+    );
+    _scale = _bounceScale(_controller, widget.scale);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Listener(
-      onPointerDown: (_) => setState(() => _pressed = true),
-      onPointerUp: (_) => setState(() => _pressed = false),
-      onPointerCancel: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? widget.scale : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
-        child: widget.child,
-      ),
+      onPointerDown: (_) => _controller.reverse(),
+      onPointerUp: (_) => _controller.forward(),
+      onPointerCancel: (_) => _controller.forward(),
+      child: ScaleTransition(scale: _scale, child: widget.child),
     );
   }
 }

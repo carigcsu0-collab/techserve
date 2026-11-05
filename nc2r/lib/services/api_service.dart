@@ -18,7 +18,10 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
 
-  const ApiException(this.message, {this.statusCode});
+  /// Machine-readable reason from the API (e.g. `email_unverified`).
+  final String? code;
+
+  const ApiException(this.message, {this.statusCode, this.code});
 
   bool get isNotFound => statusCode == 404;
 
@@ -42,12 +45,14 @@ class ApiService {
   final Dio _dio;
 
   ApiService()
-      : _dio = Dio(BaseOptions(
+    : _dio = Dio(
+        BaseOptions(
           baseUrl: baseUrl,
           headers: {'Accept': 'application/json'},
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 15),
-        ));
+        ),
+      );
 
   void setToken(String? token) {
     if (token == null) {
@@ -59,20 +64,41 @@ class ApiService {
 
   // ---- Auth ----
 
-  Future<({AppUser user, String token})> login(String email, String password) async {
+  Future<({AppUser user, String token})> login(
+    String email,
+    String password,
+  ) async {
     final data = await _post('/login', {'email': email, 'password': password});
     return _authPayload(data);
   }
 
-  Future<({AppUser user, String token})> register(
-      String name, String email, String password, String passwordConfirmation) async {
+  /// Returns null when the account must confirm its email code first.
+  Future<({AppUser user, String token})?> register(
+    String name,
+    String email,
+    String password,
+    String passwordConfirmation,
+  ) async {
     final data = await _post('/register', {
       'name': name,
       'email': email,
       'password': password,
       'password_confirmation': passwordConfirmation,
     });
+    if (data['verification_required'] == true) return null;
     return _authPayload(data);
+  }
+
+  Future<({AppUser user, String token})> verifyEmail(
+    String email,
+    String code,
+  ) async {
+    final data = await _post('/verify-email', {'email': email, 'code': code});
+    return _authPayload(data);
+  }
+
+  Future<void> resendVerification(String email) async {
+    await _post('/resend-verification', {'email': email});
   }
 
   Future<void> logout() async {
@@ -80,11 +106,15 @@ class ApiService {
     setToken(null);
   }
 
-  Future<({AppUser user, String token})> loginWithGoogle(String idToken) async =>
-      _authPayload(await _post('/auth/google', {'id_token': idToken}));
+  Future<({AppUser user, String token})> loginWithGoogle(
+    String idToken,
+  ) async => _authPayload(await _post('/auth/google', {'id_token': idToken}));
 
-  Future<({AppUser user, String token})> loginWithFacebook(String accessToken) async =>
-      _authPayload(await _post('/auth/facebook', {'access_token': accessToken}));
+  Future<({AppUser user, String token})> loginWithFacebook(
+    String accessToken,
+  ) async => _authPayload(
+    await _post('/auth/facebook', {'access_token': accessToken}),
+  );
 
   ({AppUser user, String token}) _authPayload(Map<String, dynamic> data) {
     return (
@@ -175,14 +205,16 @@ class ApiService {
   // ---- Admin: quizzes ----
 
   Future<Quiz> upsertQuiz(int lessonId, int passingScore) async {
-    final data =
-        await _post('/admin/lessons/$lessonId/quiz', {'passing_score': '$passingScore'});
+    final data = await _post('/admin/lessons/$lessonId/quiz', {
+      'passing_score': '$passingScore',
+    });
     return Quiz.fromJson(data['quiz'] as Map<String, dynamic>);
   }
 
   Future<Quiz> updateQuiz(int quizId, int passingScore) async {
-    final data =
-        await _put('/admin/quizzes/$quizId', {'passing_score': '$passingScore'});
+    final data = await _put('/admin/quizzes/$quizId', {
+      'passing_score': '$passingScore',
+    });
     return Quiz.fromJson(data['quiz'] as Map<String, dynamic>);
   }
 
@@ -246,16 +278,26 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     try {
       final response = await _dio.post(path, data: body);
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ApiException(_message(e), statusCode: e.response?.statusCode);
+      throw ApiException(
+        _message(e),
+        statusCode: e.response?.statusCode,
+        code: _code(e),
+      );
     }
   }
 
-  Future<Map<String, dynamic>> _put(String path, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _put(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
     try {
       final response = await _dio.put(path, data: body);
       return response.data as Map<String, dynamic>;
@@ -275,7 +317,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> _sendForm(
-      String method, String path, Map<String, dynamic> fields) async {
+    String method,
+    String path,
+    Map<String, dynamic> fields,
+  ) async {
     try {
       final response = await _dio.request(
         path,
@@ -286,6 +331,14 @@ class ApiService {
     } on DioException catch (e) {
       throw ApiException(_message(e), statusCode: e.response?.statusCode);
     }
+  }
+
+  String? _code(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic> && data['code'] is String) {
+      return data['code'] as String;
+    }
+    return null;
   }
 
   String _message(DioException e) {
@@ -299,8 +352,7 @@ class ApiService {
       }
     }
     return switch (e.type) {
-      DioExceptionType.connectionTimeout ||
-      DioExceptionType.receiveTimeout =>
+      DioExceptionType.connectionTimeout || DioExceptionType.receiveTimeout =>
         'Connection timed out. Is the API server running?',
       DioExceptionType.connectionError =>
         'Cannot reach the server. Check your connection and API_URL.',

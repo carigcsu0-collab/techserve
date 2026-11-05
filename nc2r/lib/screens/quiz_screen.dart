@@ -6,6 +6,7 @@ import '../models/quiz.dart';
 import '../models/quiz_result.dart';
 import '../providers/quiz_provider.dart';
 import '../widgets/app_page_route.dart';
+import '../widgets/motion.dart';
 import '../widgets/question_page.dart';
 import '../widgets/tap_scale.dart';
 import 'certificate_screen.dart';
@@ -74,18 +75,33 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        icon: Icon(
-          result.passed ? Icons.check_circle : Icons.cancel,
-          size: 48,
-          color: result.passed ? Colors.green : Colors.red,
+        icon: PopIn(
+          child: Icon(
+            result.passed ? Icons.check_circle : Icons.cancel,
+            size: 48,
+            color: result.passed ? Colors.green : Colors.red,
+          ),
         ),
         title: Text(result.passed ? 'You passed!' : 'Not quite'),
-        content: Text(
-          result.courseCompleted
-              ? 'Score: ${result.score}%\n\nCongratulations — you completed every lesson in the course!'
-              : result.passed
-                  ? 'Score: ${result.score}%\nThe next lesson is now unlocked.'
-                  : 'Score: ${result.score}%\nReview the lesson and try again.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CountUpText(
+              value: result.score,
+              prefix: 'Score: ',
+              suffix: '%',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              result.courseCompleted
+                  ? 'Congratulations — you completed every lesson in the course!'
+                  : result.passed
+                  ? 'The next lesson is now unlocked.'
+                  : 'Review the lesson and try again.',
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
         actions: [
           FilledButton(
@@ -125,8 +141,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
               Text(error.toString(), textAlign: TextAlign.center),
               const SizedBox(height: 12),
               FilledButton.tonal(
-                onPressed: () =>
-                    ref.invalidate(quizProvider(widget.lesson.id)),
+                onPressed: () => ref.invalidate(quizProvider(widget.lesson.id)),
                 child: const Text('Retry'),
               ),
             ],
@@ -134,7 +149,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         ),
         data: (quiz) => Column(
           children: [
-            LinearProgressIndicator(
+            AnimatedLinearProgress(
               value: quiz.questions.isEmpty
                   ? 0
                   : (_page + 1) / quiz.questions.length,
@@ -155,15 +170,17 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
                     controller: question.isFreeText
                         ? _controllerFor(question.id)
                         : null,
-                    onChanged: (v) =>
-                        setState(() => _answers[question.id] = v),
+                    onChanged: (v) => setState(() => _answers[question.id] = v),
                   );
                 },
               ),
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     if (_page > 0)
@@ -201,7 +218,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                          'Please answer all questions before submitting.'),
+                                        'Please answer all questions before submitting.',
+                                      ),
                                     ),
                                   );
                                 }
@@ -210,11 +228,15 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
-                            : Text(_page < quiz.questions.length - 1
-                                ? 'Next'
-                                : 'Submit'),
+                            : Text(
+                                _page < quiz.questions.length - 1
+                                    ? 'Next'
+                                    : 'Submit',
+                              ),
                       ),
                     ),
                   ],
