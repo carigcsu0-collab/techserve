@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
@@ -32,6 +33,22 @@ class UserAccountTest extends TestCase
         ])->assertOk()->assertJsonPath('user.name', 'Ann Cruz');
 
         $this->assertSame('Ann Cruz', $user->fresh()->name);
+    }
+
+    public function test_token_is_valid_for_five_days_then_expires(): void
+    {
+        $user = $this->verifiedUser();
+        $token = $user->createToken('flutter')->plainTextToken;
+
+        Carbon::setTestNow(now()->addDays(4));
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/user', ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        Carbon::setTestNow(now()->addDays(2));
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/user', ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
+
+        Carbon::setTestNow();
     }
 
     public function test_profile_name_is_required(): void
