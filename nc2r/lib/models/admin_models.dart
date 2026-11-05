@@ -53,7 +53,7 @@ class AuditEntry {
     return AuditEntry(
       id: json['id'] as int,
       action: json['action'] as String,
-      description: (json['description'] as String?) ?? '',
+      description: (json['summary'] as String?) ?? (json['description'] as String?) ?? '',
       adminName: admin?['name'] as String?,
       createdAt: DateTime.tryParse((json['created_at'] as String?) ?? ''),
     );

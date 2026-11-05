@@ -151,6 +151,21 @@ class QualificationApiTest extends TestCase
         $this->deleteJson("/api/admin/qualifications/{$created['id']}")->assertOk();
     }
 
+    public function test_qualification_can_be_created_without_order_index(): void
+    {
+        Sanctum::actingAs($this->user('admin'));
+
+        Qualification::create(['title' => 'First', 'description' => 'A', 'order_index' => 4]);
+
+        $created = $this->postJson('/api/admin/qualifications', [
+            'title' => 'Second',
+            'description' => 'B',
+            'is_published' => true,
+        ])->assertCreated()->json('qualification');
+
+        $this->assertSame(5, $created['order_index']);
+    }
+
     public function test_qualification_with_lessons_cannot_be_deleted(): void
     {
         Sanctum::actingAs($this->user('admin'));

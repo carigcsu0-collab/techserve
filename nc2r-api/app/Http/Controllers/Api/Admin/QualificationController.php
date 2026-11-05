@@ -25,6 +25,7 @@ class QualificationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate($this->rules());
+        $validated['order_index'] ??= (int) Qualification::max('order_index') + 1;
 
         $qualification = Qualification::create($validated);
         AdminAuditLog::record($request->user(), 'qualification.created', "Created qualification \"{$qualification->title}\"", $qualification);
@@ -95,7 +96,7 @@ class QualificationController extends Controller
         return [
             'title' => [$prefix, 'string', 'max:255'],
             'description' => [$prefix, 'string'],
-            'order_index' => [$prefix, 'integer', 'min:1'],
+            'order_index' => ['sometimes', 'integer', 'min:1'],
             'is_published' => ['sometimes', 'boolean'],
         ];
     }
