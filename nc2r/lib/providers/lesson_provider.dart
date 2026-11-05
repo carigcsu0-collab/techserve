@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/lesson.dart';
+import '../models/qualification.dart';
 import 'api_provider.dart';
 
 class LessonNotifier extends AsyncNotifier<List<Lesson>> {
@@ -24,9 +25,10 @@ class LessonNotifier extends AsyncNotifier<List<Lesson>> {
         : result;
   }
 
-  /// Optimistically mark [lessonId] completed and unlock the following
-  /// lesson so the lock icon disappears instantly. [refresh] then pulls
-  /// the authoritative list (freshly unlocked lessons include media_url).
+  /// Optimistically mark [lessonId] completed and unlock the next lesson in
+  /// the same qualification. Lessons in other qualifications are unaffected.
+  /// [refresh] then pulls the authoritative list (freshly unlocked lessons
+  /// include media_url).
   void applyQuizPass(int lessonId) {
     final lessons = state.value;
     if (lessons == null) return;
@@ -34,14 +36,34 @@ class LessonNotifier extends AsyncNotifier<List<Lesson>> {
     final index = lessons.indexWhere((l) => l.id == lessonId);
     if (index < 0) return;
 
+    final qualificationId = lessons[index].qualificationId;
     final updated = [...lessons];
     updated[index] = updated[index].copyWith(isCompleted: true);
-    if (index + 1 < updated.length) {
-      updated[index + 1] = updated[index + 1].copyWith(isUnlocked: true);
+
+    for (var i = index + 1; i < updated.length; i++) {
+      if (updated[i].qualificationId == qualificationId) {
+        updated[i] = updated[i].copyWith(isUnlocked: true);
+        break;
+      }
     }
     state = AsyncValue.data(updated);
+    ref.invalidate(qualificationsProvider);
   }
 }
 
 final lessonProvider =
     AsyncNotifierProvider<LessonNotifier, List<Lesson>>(LessonNotifier.new);
+
+final qualificationsProvider = FutureProvider<List<Qualification>>((ref) {
+  return ref.read(apiServiceProvider).fetchQualifications();
+});
+
+final qualificationDetailProvider = FutureProvider.family<
+    ({Qualification qualification, List<Lesson> lessons}), int>((ref, id) {
+  return ref.read(apiServiceProvider).fetchQualification(id);
+});
+
+/// Admin view: includes unpublished qualifications.
+final adminQualificationsProvider = FutureProvider<List<Qualification>>((ref) {
+  return ref.read(apiServiceProvider).fetchAdminQualifications();
+});

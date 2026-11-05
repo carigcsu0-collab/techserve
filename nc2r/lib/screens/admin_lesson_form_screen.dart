@@ -10,11 +10,13 @@ import '../services/error_messages.dart';
 class AdminLessonFormScreen extends ConsumerStatefulWidget {
   final Lesson? lesson; // null = create
   final int nextOrderIndex;
+  final int? qualificationId;
 
   const AdminLessonFormScreen({
     super.key,
     this.lesson,
     this.nextOrderIndex = 1,
+    this.qualificationId,
   });
 
   @override
@@ -29,6 +31,7 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
   late final TextEditingController _orderIndex;
   late final TextEditingController _mediaUrl;
   String _mediaType = 'video';
+  int? _qualificationId;
   String? _pickedFilePath;
   String? _pickedFileName;
   bool _saving = false;
@@ -47,6 +50,7 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
     );
     _mediaUrl = TextEditingController(text: lesson?.mediaUrl ?? '');
     _mediaType = lesson?.mediaType ?? 'video';
+    _qualificationId = lesson?.qualificationId ?? widget.qualificationId;
   }
 
   @override
@@ -120,6 +124,8 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
           description: _description.text.trim(),
           mediaType: _mediaType,
           orderIndex: int.parse(_orderIndex.text.trim()),
+          qualificationId: _qualificationId,
+          clearQualification: _qualificationId == null,
           mediaUrl: _mediaUrl.text.trim().isEmpty
               ? null
               : _mediaUrl.text.trim(),
@@ -132,6 +138,7 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
           description: _description.text.trim(),
           mediaType: _mediaType,
           orderIndex: int.parse(_orderIndex.text.trim()),
+          qualificationId: _qualificationId,
           mediaUrl: _mediaUrl.text.trim().isEmpty
               ? null
               : _mediaUrl.text.trim(),
@@ -150,6 +157,32 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _qualificationPicker() {
+    final qualifications = ref.watch(adminQualificationsProvider);
+    return qualifications.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (error, _) => Text(friendlyError(error)),
+      data: (list) => DropdownButtonFormField<int?>(
+        initialValue: list.any((q) => q.id == _qualificationId)
+            ? _qualificationId
+            : null,
+        decoration: const InputDecoration(
+          labelText: 'Qualification',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text('Not assigned'),
+          ),
+          for (final q in list)
+            DropdownMenuItem<int?>(value: q.id, child: Text(q.title)),
+        ],
+        onChanged: (v) => setState(() => _qualificationId = v),
+      ),
+    );
   }
 
   @override
@@ -217,6 +250,8 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _qualificationPicker(),
             const SizedBox(height: 16),
             Text('Media source', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),

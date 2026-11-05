@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -19,6 +20,7 @@ class Lesson extends Model
         'media_type',
         'order_index',
         'is_published',
+        'qualification_id',
     ];
 
     protected function casts(): array
@@ -26,12 +28,18 @@ class Lesson extends Model
         return [
             'order_index' => 'integer',
             'is_published' => 'boolean',
+            'qualification_id' => 'integer',
         ];
     }
 
     public function scopePublished($query)
     {
         return $query->where('is_published', true);
+    }
+
+    public function qualification(): BelongsTo
+    {
+        return $this->belongsTo(Qualification::class);
     }
 
     public function quiz(): HasOne
@@ -45,22 +53,36 @@ class Lesson extends Model
     }
 
     /**
-     * The lesson that must be completed before this one unlocks,
-     * i.e. the lesson with the highest order_index below this one.
+     * Lessons in the same qualification (or the same unassigned group).
+     */
+    public function scopeInSameQualification($query, ?int $qualificationId)
+    {
+        return $qualificationId === null
+            ? $query->whereNull('qualification_id')
+            : $query->where('qualification_id', $qualificationId);
+    }
+
+    /**
+     * The lesson that must be completed before this one unlocks: the published
+     * lesson in the same qualification with the highest order_index below this one.
      */
     public function previous(): ?self
     {
-        return static::published()->where('order_index', '<', $this->order_index)
+        return static::published()
+            ->inSameQualification($this->qualification_id)
+            ->where('order_index', '<', $this->order_index)
             ->orderByDesc('order_index')
             ->first();
     }
 
     /**
-     * The next lesson in sequence (highest order_index above this one).
+     * The next published lesson in the same qualification.
      */
     public function next(): ?self
     {
-        return static::published()->where('order_index', '>', $this->order_index)
+        return static::published()
+            ->inSameQualification($this->qualification_id)
+            ->where('order_index', '>', $this->order_index)
             ->orderBy('order_index')
             ->first();
     }

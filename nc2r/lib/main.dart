@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
-import 'screens/admin_lessons_screen.dart';
-import 'screens/lesson_list_screen.dart';
+import 'screens/admin_shell.dart';
+import 'screens/learner_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/update_service.dart';
@@ -124,10 +124,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         child = const LoginScreen();
         stateKey = 'login';
       } else if (user.isAdmin) {
-        child = const AdminLessonsScreen();
+        child = const AdminShell();
         stateKey = 'admin';
       } else {
-        child = const LessonListScreen();
+        child = const LearnerShell();
         stateKey = 'learner';
       }
     }

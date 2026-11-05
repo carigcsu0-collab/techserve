@@ -3,10 +3,11 @@ import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import '../models/question.dart';
-
+import '../models/admin_models.dart';
 import '../models/app_user.dart';
 import '../models/lesson.dart';
+import '../models/qualification.dart';
+import '../models/question.dart';
 import '../models/quiz.dart';
 import '../models/quiz_result.dart';
 import '../models/quiz_submission.dart';
@@ -155,6 +156,28 @@ class ApiService {
         .toList();
   }
 
+  // ---- Qualifications ----
+
+  Future<List<Qualification>> fetchQualifications() async {
+    final data = await _get('/qualifications');
+    return (data['qualifications'] as List<dynamic>)
+        .map((q) => Qualification.fromJson(q as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Returns the qualification plus its lessons, with lock state for the current user.
+  Future<({Qualification qualification, List<Lesson> lessons})>
+      fetchQualification(int id) async {
+    final data = await _get('/qualifications/$id');
+    return (
+      qualification:
+          Qualification.fromJson(data['qualification'] as Map<String, dynamic>),
+      lessons: (data['lessons'] as List<dynamic>)
+          .map((l) => Lesson.fromJson(l as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
   // ---- Quizzes ----
 
   Future<Quiz> fetchQuiz(int lessonId) async {
@@ -178,6 +201,7 @@ class ApiService {
     required String description,
     required String mediaType,
     required int orderIndex,
+    int? qualificationId,
     String? mediaUrl,
     String? mediaFilePath,
     void Function(int sent, int total)? onUploadProgress,
@@ -187,6 +211,7 @@ class ApiService {
       'description': description,
       'media_type': mediaType,
       'order_index': '$orderIndex',
+      if (qualificationId != null) 'qualification_id': '$qualificationId',
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
       if (mediaFilePath != null)
         'media_file': await MultipartFile.fromFile(mediaFilePath),
@@ -194,12 +219,15 @@ class ApiService {
     return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
   }
 
+  /// Pass [clearQualification] to move the lesson out of its qualification.
   Future<Lesson> updateLesson(
     int id, {
     String? title,
     String? description,
     String? mediaType,
     int? orderIndex,
+    int? qualificationId,
+    bool clearQualification = false,
     String? mediaUrl,
     String? mediaFilePath,
     void Function(int sent, int total)? onUploadProgress,
@@ -211,6 +239,10 @@ class ApiService {
       'description': ?description,
       'media_type': ?mediaType,
       if (orderIndex != null) 'order_index': '$orderIndex',
+      if (clearQualification)
+        'qualification_id': ''
+      else if (qualificationId != null)
+        'qualification_id': '$qualificationId',
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
       if (mediaFilePath != null)
         'media_file': await MultipartFile.fromFile(mediaFilePath),
@@ -247,6 +279,106 @@ class ApiService {
     return (data['submissions'] as List<dynamic>)
         .map((s) => QuizSubmission.fromJson(s as Map<String, dynamic>))
         .toList();
+  }
+
+  // ---- Admin: dashboard, activity, users ----
+
+  Future<({DashboardStats stats, List<AuditEntry> recent})>
+      fetchDashboard() async {
+    final data = await _get('/admin/dashboard');
+    return (
+      stats: DashboardStats.fromJson(data['stats'] as Map<String, dynamic>),
+      recent: (data['recent_activity'] as List<dynamic>)
+          .map((l) => AuditEntry.fromJson(l as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Future<List<AuditEntry>> fetchAuditLogs() async {
+    final data = await _get('/admin/audit-logs');
+    return (data['logs'] as List<dynamic>)
+        .map((l) => AuditEntry.fromJson(l as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ManagedUser>> fetchUsers({String query = ''}) async {
+    final data = await _get(
+      '/admin/users${query.isEmpty ? '' : '?q=${Uri.encodeQueryComponent(query)}'}',
+    );
+    return (data['users'] as List<dynamic>)
+        .map((u) => ManagedUser.fromJson(u as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<UserDetail> fetchUserDetail(int id) async {
+    final data = await _get('/admin/users/$id');
+    return UserDetail.fromJson(data);
+  }
+
+  Future<ManagedUser> updateUserRole(int id, String role) async {
+    final data = await _put('/admin/users/$id/role', {'role': role});
+    return ManagedUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  // ---- Admin: qualifications ----
+
+  Future<List<Qualification>> fetchAdminQualifications() async {
+    final data = await _get('/admin/qualifications');
+    return (data['qualifications'] as List<dynamic>)
+        .map((q) => Qualification.fromJson(q as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Qualification> createQualification({
+    required String title,
+    required String description,
+    bool isPublished = true,
+  }) async {
+    final data = await _post('/admin/qualifications', {
+      'title': title,
+      'description': description,
+      'is_published': isPublished,
+    });
+    return Qualification.fromJson(data['qualification'] as Map<String, dynamic>);
+  }
+
+  Future<Qualification> updateQualification(
+    int id, {
+    String? title,
+    String? description,
+    bool? isPublished,
+  }) async {
+    final data = await _put('/admin/qualifications/$id', {
+      'title': ?title,
+      'description': ?description,
+      'is_published': ?isPublished,
+    });
+    return Qualification.fromJson(data['qualification'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteQualification(int id) async {
+    await _delete('/admin/qualifications/$id');
+  }
+
+  Future<void> reorderQualifications(List<int> ids) async {
+    await _put('/admin/qualifications/reorder', {'ids': ids});
+  }
+
+  // ---- Admin: lesson publishing and ordering ----
+
+  Future<Lesson> setLessonPublished(int id, bool isPublished) async {
+    final data = await _put('/admin/lessons/$id/publish', {
+      'is_published': isPublished,
+    });
+    return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
+  }
+
+  /// [ids] must list every lesson in [qualificationId] (null = unassigned) exactly once.
+  Future<void> reorderLessons(int? qualificationId, List<int> ids) async {
+    await _put('/admin/lessons/reorder', {
+      'qualification_id': qualificationId,
+      'ids': ids,
+    });
   }
 
   // ---- Admin: questions ----

@@ -32,6 +32,7 @@ class LessonController extends Controller
             'description' => ['required', 'string'],
             'media_type' => ['required', Rule::in(['video', 'image'])],
             'order_index' => ['required', 'integer', 'min:1'],
+            'qualification_id' => ['nullable', 'integer', 'exists:qualifications,id'],
             'media_url' => ['required_without:media_file', 'nullable', 'string', 'max:2048'],
             'media_file' => array_merge(['required_without:media_url'], $this->mediaFileRules()),
         ];
@@ -89,6 +90,7 @@ class LessonController extends Controller
         })->all();
 
         $rules['media_url'] = ['nullable', 'string', 'max:2048'];
+        $rules['qualification_id'] = ['nullable', 'integer', 'exists:qualifications,id'];
         $rules['media_file'] = array_merge(['nullable'], $this->mediaFileRules());
         $rules['order_index'] = [
             'sometimes', 'integer', 'min:1',
@@ -134,27 +136,40 @@ class LessonController extends Controller
         return response()->json(['lesson' => $lesson->fresh()]);
     }
 
-    // Two-phase write so the unique order_index never collides mid-update.
+    // Lessons are ordered inside one qualification (null = unassigned group).
+    // The ids must be exactly that group's lessons. Their existing order_index
+    // values are reused in the new order, so the global unique index stays valid.
     public function reorder(Request $request)
     {
         $validated = $request->validate([
+            'qualification_id' => ['nullable', 'integer', 'exists:qualifications,id'],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'distinct'],
         ]);
 
+        $qualificationId = $validated['qualification_id'] ?? null;
         $ids = $validated['ids'];
-        $existing = Lesson::query()->pluck('id')->all();
 
-        if (count($ids) !== count($existing) || array_diff($existing, $ids) !== []) {
-            return response()->json(['message' => 'Provide every lesson id exactly once.'], 422);
+        $group = Lesson::query()
+            ->when($qualificationId === null,
+                fn ($q) => $q->whereNull('qualification_id'),
+                fn ($q) => $q->where('qualification_id', $qualificationId))
+            ->orderBy('order_index')
+            ->get(['id', 'order_index']);
+
+        if (count($ids) !== $group->count() || array_diff($group->pluck('id')->all(), $ids) !== []) {
+            return response()->json(['message' => 'Provide every lesson in this qualification exactly once.'], 422);
         }
 
-        DB::transaction(function () use ($ids) {
+        $slots = $group->pluck('order_index')->values()->all();
+
+        DB::transaction(function () use ($ids, $slots) {
+            // Negative values first so a swap never collides with a slot still in use.
             foreach ($ids as $position => $id) {
                 Lesson::whereKey($id)->update(['order_index' => -($position + 1)]);
             }
             foreach ($ids as $position => $id) {
-                Lesson::whereKey($id)->update(['order_index' => $position + 1]);
+                Lesson::whereKey($id)->update(['order_index' => $slots[$position]]);
             }
         });
 
@@ -162,6 +177,7 @@ class LessonController extends Controller
 
         return response()->json(['message' => 'Lessons reordered']);
     }
+
 
     // The upload is saved as-is right away; the queue worker converts it to MP4 afterwards.
     private function queueVideoTranscode(Lesson $lesson, Request $request): void

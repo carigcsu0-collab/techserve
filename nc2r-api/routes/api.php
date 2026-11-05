@@ -3,11 +3,13 @@
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\LessonController as AdminLessonController;
+use App\Http\Controllers\Api\Admin\QualificationController as AdminQualificationController;
 use App\Http\Controllers\Api\Admin\QuestionController as AdminQuestionController;
 use App\Http\Controllers\Api\Admin\QuizController as AdminQuizController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LessonController;
+use App\Http\Controllers\Api\QualificationController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\UserController;
@@ -30,6 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [UserController::class, 'updatePassword']);
 
     Route::get('/lessons', [LessonController::class, 'index']);
+    Route::get('/qualifications', [QualificationController::class, 'index']);
+    Route::get('/qualifications/{qualification}', [QualificationController::class, 'show']);
     Route::get('/lessons/{lesson}/quiz', [QuizController::class, 'show']);
     Route::post('/quizzes/{quiz}/submit', [QuizController::class, 'submit']);
 });
@@ -41,6 +45,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::get('/users/{user}', [AdminUserController::class, 'show']);
     Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
+
+    Route::get('/qualifications', [AdminQualificationController::class, 'index']);
+    Route::post('/qualifications', [AdminQualificationController::class, 'store']);
+    Route::put('/qualifications/reorder', [AdminQualificationController::class, 'reorder']);
+    Route::put('/qualifications/{qualification}', [AdminQualificationController::class, 'update']);
+    Route::delete('/qualifications/{qualification}', [AdminQualificationController::class, 'destroy']);
 
     Route::post('/lessons', [AdminLessonController::class, 'store']);
     Route::put('/lessons/reorder', [AdminLessonController::class, 'reorder']);
