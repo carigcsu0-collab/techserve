@@ -6,6 +6,7 @@ import 'screens/admin_lessons_screen.dart';
 import 'screens/lesson_list_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/update_service.dart';
 
 void main() {
   runApp(const ProviderScope(child: NC2RApp()));
@@ -77,11 +78,24 @@ class NC2RApp extends StatelessWidget {
 
 /// Routes between splash / login / learner / admin based on auth state,
 /// cross-fading between them instead of an abrupt widget swap.
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) UpdateService.checkAndPrompt(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
 
     final Widget child;
