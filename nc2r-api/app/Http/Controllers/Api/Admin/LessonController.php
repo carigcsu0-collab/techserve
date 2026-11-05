@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\TranscodeLessonVideo;
 use App\Models\Lesson;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -72,6 +73,7 @@ class LessonController extends Controller
         unset($validated['media_file']);
 
         $lesson = Lesson::create($validated);
+        $this->queueVideoTranscode($lesson, $request);
 
         return response()->json(['lesson' => $lesson], 201);
     }
@@ -103,8 +105,17 @@ class LessonController extends Controller
         unset($validated['media_file']);
 
         $lesson->update($validated);
+        $this->queueVideoTranscode($lesson, $request);
 
         return response()->json(['lesson' => $lesson->fresh()]);
+    }
+
+    // The upload is saved as-is right away; the queue worker converts it to MP4 afterwards.
+    private function queueVideoTranscode(Lesson $lesson, Request $request): void
+    {
+        if ($lesson->media_type === 'video' && $request->hasFile('media_file')) {
+            TranscodeLessonVideo::dispatch($lesson->id);
+        }
     }
 
     public function destroy(Lesson $lesson)

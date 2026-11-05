@@ -8,7 +8,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev unzip \
+      libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev unzip ffmpeg \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
  && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring bcmath zip gd opcache \
  && rm -rf /var/lib/apt/lists/*
@@ -19,6 +19,7 @@ RUN a2enmod rewrite headers \
  && mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY docker/php/hardening.ini $PHP_INI_DIR/conf.d/zz-hardening.ini
+COPY docker/php/worker.ini $PHP_INI_DIR/conf.d/zz-worker.ini
 COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/apache/zz-hardening.conf /etc/apache2/conf-available/zz-hardening.conf
 RUN a2enconf zz-hardening

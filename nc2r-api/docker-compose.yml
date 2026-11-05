@@ -29,6 +29,7 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       LOG_LEVEL: error
+      QUEUE_CONNECTION: database
 
     # Host port 8000 maps to the APP_URL in .env (http://localhost:8000).
     # To accept connections only from this machine, change this to "127.0.0.1:8000:80".
@@ -64,6 +65,56 @@ services:
       - no-new-privileges:true
     pids_limit: 256
     mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Converts uploaded videos to MP4 in the background (ffmpeg).
+  # Same image and volumes as api, but runs as www-data with a PHP ini that allows
+  # proc_open (needed by ffmpeg), and has no published ports.
+  worker:
+    image: nc2r-api:latest
+    container_name: nc2r-worker
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=14400", "--sleep=3", "--memory=1024"]
+    user: "33:33"
+
+    env_file:
+      - path: .env
+        required: true
+
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: error
+      QUEUE_CONNECTION: database
+
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/www/html/bootstrap/cache:mode=0775,uid=33,gid=33
+    volumes:
+      - type: bind
+        source: ${MEDIA_HOST_PATH:?Set MEDIA_HOST_PATH in .env, e.g. D:/nc2r/uploads}
+        target: /var/www/html/storage/app
+        bind:
+          create_host_path: false
+      - nc2r-storage:/var/www/html/storage
+      - type: bind
+        source: ./docker/php/worker.ini
+        target: /usr/local/etc/php/conf.d/zz-worker.ini
+        read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 2g
     logging:
       driver: json-file
       options:

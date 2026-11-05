@@ -101,6 +101,8 @@ The stack in `docker-compose.yml` runs the API on Apache + PHP 8.3 with a read-o
 ### Video storage and upload limits
 
 - Lesson media is saved to `MEDIA_HOST_PATH` on the HDD: videos under `lessons/`, temp uploads under `tmp/`.
+- Every uploaded video is converted to MP4 (H.264/AAC, `faststart`) by the `worker` service using ffmpeg, so any input format plays. The upload is saved first and the lesson URL switches to the `.mp4` when conversion finishes. If conversion fails, the original file is kept and the error is logged (`docker compose logs worker`).
+- Check the worker is running: `docker compose ps worker`. Queue tables are created by migration `2026_11_05_000000_create_jobs_tables`.
 - Max video size is 2 GB (`LessonController::MAX_VIDEO_KB`). Max image size is 50 MB. PHP (`docker/php/hardening.ini`) and Apache (`docker/apache/zz-hardening.conf`) are set to match.
 - If you change the video limit, update `MAX_VIDEO_KB`, `upload_max_filesize` and `post_max_size` together.
 
