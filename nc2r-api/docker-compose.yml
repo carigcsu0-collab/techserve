@@ -1,7 +1,8 @@
 # nc2r API - hardened single-service stack.
 #
 # Setup on the Docker server:
-#   1. Put your real .env next to this file (it is git-ignored and never baked into the image).
+#   1. Add the environment variables through your stack (Portainer/Compose UI). The compose file
+#      does not load .env into the containers. MEDIA_HOST_PATH is still read from .env for the volume path.
 #   2. docker compose up -d --build
 #   3. docker compose logs -f api   (check the health status with: docker compose ps)
 #
@@ -20,9 +21,9 @@ services:
     container_name: nc2r-api
     restart: unless-stopped
 
-    env_file:
-      - path: .env
-        required: true
+    # env_file:
+    #   - path: .env
+    #     required: true
 
     # These override .env so a copied production .env cannot leave debug/error pages on.
     environment:
@@ -83,9 +84,9 @@ services:
     command: ["php", "artisan", "queue:work", "--tries=1", "--timeout=14400", "--sleep=3", "--memory=1024"]
     user: "33:33"
 
-    env_file:
-      - path: .env
-        required: true
+    # env_file:
+    #   - path: .env
+    #     required: true
 
     environment:
       APP_ENV: production
