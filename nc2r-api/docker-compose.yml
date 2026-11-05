@@ -15,7 +15,8 @@ name: nc2r-api
 services:
   api:
     build:
-      context: .
+      # Built from the GitHub repo (nc2r-api folder on main), not from the local copy.
+      context: https://github.com/carigcsu0-collab/techserve.git#main:nc2r-api
       dockerfile: Dockerfile
     image: nc2r-api:latest
     # Built locally from the Dockerfile, never pulled from a registry.
@@ -79,7 +80,8 @@ services:
   # proc_open (needed by ffmpeg), and has no published ports.
   worker:
     build:
-      context: .
+      # Built from the GitHub repo (nc2r-api folder on main), not from the local copy.
+      context: https://github.com/carigcsu0-collab/techserve.git#main:nc2r-api
       dockerfile: Dockerfile
     image: nc2r-api:latest
     pull_policy: build
