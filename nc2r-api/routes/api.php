@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\LessonController as AdminLessonController;
 use App\Http\Controllers\Api\Admin\QuestionController as AdminQuestionController;
 use App\Http\Controllers\Api\Admin\QuizController as AdminQuizController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\QuizController;
@@ -32,8 +35,17 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+    Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
+
+    Route::get('/users', [AdminUserController::class, 'index']);
+    Route::get('/users/{user}', [AdminUserController::class, 'show']);
+    Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
+
     Route::post('/lessons', [AdminLessonController::class, 'store']);
+    Route::put('/lessons/reorder', [AdminLessonController::class, 'reorder']);
     Route::put('/lessons/{lesson}', [AdminLessonController::class, 'update']);
+    Route::put('/lessons/{lesson}/publish', [AdminLessonController::class, 'publish']);
     Route::delete('/lessons/{lesson}', [AdminLessonController::class, 'destroy']);
 
     Route::post('/lessons/{lesson}/quiz', [AdminQuizController::class, 'store']);

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\TranscodeLessonVideo;
+use App\Models\AdminAuditLog;
 use App\Models\Lesson;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -74,6 +76,7 @@ class LessonController extends Controller
 
         $lesson = Lesson::create($validated);
         $this->queueVideoTranscode($lesson, $request);
+        AdminAuditLog::record($request->user(), 'lesson.created', "Created lesson \"{$lesson->title}\"", $lesson);
 
         return response()->json(['lesson' => $lesson], 201);
     }
@@ -106,8 +109,58 @@ class LessonController extends Controller
 
         $lesson->update($validated);
         $this->queueVideoTranscode($lesson, $request);
+        AdminAuditLog::record($request->user(), 'lesson.updated', "Updated lesson \"{$lesson->title}\"", $lesson);
 
         return response()->json(['lesson' => $lesson->fresh()]);
+    }
+
+    public function publish(Request $request, Lesson $lesson)
+    {
+        $validated = $request->validate([
+            'is_published' => ['required', 'boolean'],
+        ]);
+
+        if ($lesson->is_published !== $validated['is_published']) {
+            $lesson->update(['is_published' => $validated['is_published']]);
+
+            AdminAuditLog::record(
+                $request->user(),
+                $lesson->is_published ? 'lesson.published' : 'lesson.unpublished',
+                ($lesson->is_published ? 'Published' : 'Unpublished') . " lesson \"{$lesson->title}\"",
+                $lesson,
+            );
+        }
+
+        return response()->json(['lesson' => $lesson->fresh()]);
+    }
+
+    // Two-phase write so the unique order_index never collides mid-update.
+    public function reorder(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $ids = $validated['ids'];
+        $existing = Lesson::query()->pluck('id')->all();
+
+        if (count($ids) !== count($existing) || array_diff($existing, $ids) !== []) {
+            return response()->json(['message' => 'Provide every lesson id exactly once.'], 422);
+        }
+
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $position => $id) {
+                Lesson::whereKey($id)->update(['order_index' => -($position + 1)]);
+            }
+            foreach ($ids as $position => $id) {
+                Lesson::whereKey($id)->update(['order_index' => $position + 1]);
+            }
+        });
+
+        AdminAuditLog::record($request->user(), 'lesson.reordered', 'Reordered ' . count($ids) . ' lessons');
+
+        return response()->json(['message' => 'Lessons reordered']);
     }
 
     // The upload is saved as-is right away; the queue worker converts it to MP4 afterwards.
@@ -118,10 +171,13 @@ class LessonController extends Controller
         }
     }
 
-    public function destroy(Lesson $lesson)
+    public function destroy(Request $request, Lesson $lesson)
     {
+        $title = $lesson->title;
+
         $this->deleteMedia($lesson);
         $lesson->delete();
+        AdminAuditLog::record($request->user(), 'lesson.deleted', "Deleted lesson \"{$title}\"");
 
         return response()->json(['message' => 'Lesson deleted']);
     }

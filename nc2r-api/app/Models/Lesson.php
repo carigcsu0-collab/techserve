@@ -18,13 +18,20 @@ class Lesson extends Model
         'media_url',
         'media_type',
         'order_index',
+        'is_published',
     ];
 
     protected function casts(): array
     {
         return [
             'order_index' => 'integer',
+            'is_published' => 'boolean',
         ];
+    }
+
+    public function scopePublished($query)
+    {
+        return $query->where('is_published', true);
     }
 
     public function quiz(): HasOne
@@ -43,7 +50,7 @@ class Lesson extends Model
      */
     public function previous(): ?self
     {
-        return static::where('order_index', '<', $this->order_index)
+        return static::published()->where('order_index', '<', $this->order_index)
             ->orderByDesc('order_index')
             ->first();
     }
@@ -53,7 +60,7 @@ class Lesson extends Model
      */
     public function next(): ?self
     {
-        return static::where('order_index', '>', $this->order_index)
+        return static::published()->where('order_index', '>', $this->order_index)
             ->orderBy('order_index')
             ->first();
     }

@@ -346,10 +346,23 @@ class ApiService {
       final response = await _dio.request(
         path,
         data: FormData.fromMap(fields),
-        options: Options(method: method),
+        // Big uploads are stored on the server before it replies, so allow a longer wait.
+        options: Options(
+          method: method,
+          receiveTimeout: onUploadProgress != null
+              ? const Duration(minutes: 10)
+              : null,
+        ),
         onSendProgress: onUploadProgress,
       );
-      return response.data as Map<String, dynamic>;
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw ApiException(
+          'The server sent an unexpected reply (HTTP ${response.statusCode}). Please try again.',
+          statusCode: response.statusCode,
+        );
+      }
+      return data;
     } on DioException catch (e) {
       throw ApiException(_message(e), statusCode: e.response?.statusCode);
     }
