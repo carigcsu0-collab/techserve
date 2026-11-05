@@ -1,8 +1,9 @@
 # nc2r API - hardened single-service stack.
 #
 # Setup on the Docker server:
-#   1. Add the environment variables through your stack (Portainer/Compose UI). The compose file
-#      does not load .env into the containers. MEDIA_HOST_PATH is still read from .env for the volume path.
+#   1. Add the environment variables in your stack (Portainer/Compose UI). The compose file passes the
+#      needed ones (APP_KEY, DB_*, MAIL_*, FACEBOOK_*) into the containers by name. Other variables in
+#      the stack are NOT passed into the containers. MEDIA_HOST_PATH is still read from .env for the volume path.
 #   2. docker compose up -d --build
 #   3. docker compose logs -f api   (check the health status with: docker compose ps)
 #
@@ -29,11 +30,29 @@ services:
     #     required: true
 
     # These override .env so a copied production .env cannot leave debug/error pages on.
+    # Values below come from the stack's environment variables (Portainer), passed through by name.
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
       LOG_LEVEL: error
       QUEUE_CONNECTION: database
+      APP_KEY: "${APP_KEY?Set APP_KEY in the stack environment}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      DB_CONNECTION: "${DB_CONNECTION:-mysql}"
+      DB_HOST: "${DB_HOST?Set DB_HOST in the stack environment}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE?Set DB_DATABASE in the stack environment}"
+      DB_USERNAME: "${DB_USERNAME?Set DB_USERNAME in the stack environment}"
+      DB_PASSWORD: "${DB_PASSWORD?Set DB_PASSWORD in the stack environment}"
+      MAIL_MAILER: "${MAIL_MAILER:-log}"
+      MAIL_HOST: "${MAIL_HOST:-127.0.0.1}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_SCHEME: "${MAIL_SCHEME:-}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-hello@example.com}"
+      FACEBOOK_APP_ID: "${FACEBOOK_APP_ID:-}"
+      FACEBOOK_APP_SECRET: "${FACEBOOK_APP_SECRET:-}"
 
     # Host port 8000 maps to the APP_URL in .env (http://localhost:8000).
     # To accept connections only from this machine, change this to "127.0.0.1:8000:80".
@@ -101,6 +120,21 @@ services:
       APP_DEBUG: "false"
       LOG_LEVEL: error
       QUEUE_CONNECTION: database
+      APP_KEY: "${APP_KEY?Set APP_KEY in the stack environment}"
+      APP_URL: "${APP_URL:-http://localhost}"
+      DB_CONNECTION: "${DB_CONNECTION:-mysql}"
+      DB_HOST: "${DB_HOST?Set DB_HOST in the stack environment}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE?Set DB_DATABASE in the stack environment}"
+      DB_USERNAME: "${DB_USERNAME?Set DB_USERNAME in the stack environment}"
+      DB_PASSWORD: "${DB_PASSWORD?Set DB_PASSWORD in the stack environment}"
+      MAIL_MAILER: "${MAIL_MAILER:-log}"
+      MAIL_HOST: "${MAIL_HOST:-127.0.0.1}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_SCHEME: "${MAIL_SCHEME:-}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-hello@example.com}"
 
     read_only: true
     tmpfs:
