@@ -18,6 +18,8 @@ services:
       context: .
       dockerfile: Dockerfile
     image: nc2r-api:latest
+    # Built locally from the Dockerfile, never pulled from a registry.
+    pull_policy: build
     container_name: nc2r-api
     restart: unless-stopped
 
@@ -76,7 +78,11 @@ services:
   # Same image and volumes as api, but runs as www-data with a PHP ini that allows
   # proc_open (needed by ffmpeg), and has no published ports.
   worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: nc2r-api:latest
+    pull_policy: build
     container_name: nc2r-worker
     restart: unless-stopped
     depends_on:
