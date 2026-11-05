@@ -90,7 +90,7 @@ Google/Facebook buttons are mobile/web only (not Windows desktop).
 
 ## Docker (production server)
 
-The stack in `docker-compose.yml` runs the API on Apache + PHP 8.3 with a read-only root filesystem, no Linux capabilities beyond what Apache needs, and `no-new-privileges`.
+The stack in `docker-compose.yml` runs the API on Apache + PHP 8.4 with a read-only root filesystem, no Linux capabilities beyond what Apache needs, and `no-new-privileges`.
 
 1. Copy the project to the server and place your real `.env` next to `docker-compose.yml`. It is git-ignored and is read at runtime through `env_file`, so it is never copied into the image.
 2. Add the video folder on the HDD to `.env` (forward slashes work on Windows), e.g. `MEDIA_HOST_PATH=D:/nc2r/uploads`. Create that folder first. Docker Desktop must have the drive shared (Settings > Resources > File sharing).
