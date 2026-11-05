@@ -20,7 +20,8 @@ return [
 
     'google' => [
         // Comma-separated OAuth client IDs (web/server + Android/iOS) allowed as the token audience.
-        'client_ids' => env('GOOGLE_CLIENT_IDS'),
+        // The default is the public OAuth client ID that ships in the app; it is not a secret.
+        'client_ids' => env('GOOGLE_CLIENT_IDS', '895563303343-07ot4koe6dun661ckhedv48suacgmhtc.apps.googleusercontent.com'),
     ],
 
     'facebook' => [
