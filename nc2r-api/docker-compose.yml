@@ -33,7 +33,7 @@ services:
     # Host port 8000 maps to the APP_URL in .env (http://localhost:8000).
     # To accept connections only from this machine, change this to "127.0.0.1:8000:80".
     ports:
-      - "8000:80"
+      - "8050:80"
 
     # Hardening
     read_only: true

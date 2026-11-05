@@ -56,7 +56,10 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
   }
 
   List<String> get _allowedExtensions => _mediaType == 'video'
-      ? const ['mp4', 'webm', 'mov']
+      ? const [
+          'mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'f4v', 'mpeg', 'mpg',
+          'mpe', 'm2v', 'ts', 'm2ts', 'mts', '3gp', '3g2', 'ogv', 'vob', 'asf', 'rm', 'rmvb', 'divx',
+        ]
       : const ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
   Future<void> _pickFile() async {

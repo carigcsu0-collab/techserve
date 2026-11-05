@@ -14,6 +14,14 @@ class LessonController extends Controller
     private const MAX_VIDEO_KB = 2097152; // 2 GB
     private const MAX_IMAGE_KB = 51200;   // 50 MB
 
+    // Any common video container. Playback still depends on the device's codecs.
+    private const VIDEO_EXTENSIONS = [
+        'mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'f4v', 'mpeg', 'mpg',
+        'mpe', 'm2v', 'ts', 'm2ts', 'mts', '3gp', '3g2', 'ogv', 'vob', 'asf', 'rm', 'rmvb', 'divx',
+    ];
+
+    private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
     private function rules(): array
     {
         return [
@@ -22,20 +30,17 @@ class LessonController extends Controller
             'media_type' => ['required', Rule::in(['video', 'image'])],
             'order_index' => ['required', 'integer', 'min:1'],
             'media_url' => ['required_without:media_file', 'nullable', 'string', 'max:2048'],
-            'media_file' => [
-                'required_without:media_url',
-                'file',
-                'mimetypes:video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/gif,image/webp',
-                'max:' . self::MAX_VIDEO_KB,
-            ],
+            'media_file' => array_merge(['required_without:media_url'], $this->mediaFileRules()),
         ];
     }
 
     private function mediaFileRules(): array
     {
+        $extensions = array_merge(self::VIDEO_EXTENSIONS, self::IMAGE_EXTENSIONS);
+
         return [
-            'nullable', 'file',
-            'mimetypes:video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/gif,image/webp',
+            'file',
+            'mimes:' . implode(',', $extensions),
             'max:' . self::MAX_VIDEO_KB,
         ];
     }
@@ -79,7 +84,7 @@ class LessonController extends Controller
         })->all();
 
         $rules['media_url'] = ['nullable', 'string', 'max:2048'];
-        $rules['media_file'] = $this->mediaFileRules();
+        $rules['media_file'] = array_merge(['nullable'], $this->mediaFileRules());
         $rules['order_index'] = [
             'sometimes', 'integer', 'min:1',
             Rule::unique('lessons', 'order_index')->ignore($lesson->id),
