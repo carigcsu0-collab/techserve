@@ -112,10 +112,6 @@ services:
         bind:
           create_host_path: false
       - nc2r-storage:/var/www/html/storage
-      - type: bind
-        source: ./docker/php/worker.ini
-        target: /usr/local/etc/php/conf.d/zz-worker.ini
-        read_only: true
     cap_drop:
       - ALL
     security_opt:
