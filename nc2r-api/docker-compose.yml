@@ -43,6 +43,14 @@ services:
       - /var/lock
       - /var/www/html/bootstrap/cache:mode=0775,uid=33,gid=33
     volumes:
+      # Lesson videos and images go to the separate HDD. Set MEDIA_HOST_PATH in .env,
+      # e.g. MEDIA_HOST_PATH=D:/nc2r/uploads. The folder must exist (create_host_path is off on purpose).
+      - type: bind
+        source: ${MEDIA_HOST_PATH:?Set MEDIA_HOST_PATH in .env, e.g. D:/nc2r/uploads}
+        target: /var/www/html/storage/app
+        bind:
+          create_host_path: false
+      # Framework cache, sessions and logs stay in a Docker-managed volume.
       - nc2r-storage:/var/www/html/storage
     cap_drop:
       - ALL

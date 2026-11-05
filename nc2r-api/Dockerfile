@@ -32,8 +32,9 @@ RUN composer install --no-dev --no-progress --prefer-dist --optimize-autoloader 
 # .dockerignore keeps .env, database files, logs and storage out of the image
 COPY . .
 RUN composer dump-autoload --optimize --no-dev \
- && mkdir -p storage/app/public storage/app/private storage/framework/cache/data \
+ && mkdir -p storage/app/public storage/app/private storage/app/tmp storage/framework/cache/data \
       storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+ && ln -sfn /var/www/html/storage/app/public public/storage \
  && chown -R www-data:www-data storage bootstrap/cache \
  && chmod -R u+rwX,g+rwX,o-rwx storage bootstrap/cache
 

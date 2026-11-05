@@ -6,10 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Lesson;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class LessonController extends Controller
 {
+    private const MAX_VIDEO_KB = 2097152; // 2 GB
+    private const MAX_IMAGE_KB = 51200;   // 50 MB
+
     private function rules(): array
     {
         return [
@@ -22,16 +26,40 @@ class LessonController extends Controller
                 'required_without:media_url',
                 'file',
                 'mimetypes:video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/gif,image/webp',
-                'max:51200',
+                'max:' . self::MAX_VIDEO_KB,
             ],
         ];
     }
 
+    private function mediaFileRules(): array
+    {
+        return [
+            'nullable', 'file',
+            'mimetypes:video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/gif,image/webp',
+            'max:' . self::MAX_VIDEO_KB,
+        ];
+    }
+
+    // Laravel's max rule only knows one limit, so images get a stricter check here.
+    private function validateLesson(Request $request, array $rules, string $mediaType): array
+    {
+        $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($v) use ($request, $mediaType) {
+            $file = $request->file('media_file');
+            if ($file && $mediaType === 'image' && $file->getSize() > self::MAX_IMAGE_KB * 1024) {
+                $v->errors()->add('media_file', 'Images must be 50 MB or smaller.');
+            }
+        });
+
+        return $validator->validate();
+    }
+
     public function store(Request $request)
     {
-        $validated = $request->validate(array_merge($this->rules(), [
+        $validated = $this->validateLesson($request, array_merge($this->rules(), [
             'order_index' => ['required', 'integer', 'min:1', 'unique:lessons,order_index'],
-        ]));
+        ]), (string) $request->input('media_type'));
 
         if ($request->hasFile('media_file')) {
             $validated['media_url'] = $this->storeMedia($request);
@@ -51,17 +79,17 @@ class LessonController extends Controller
         })->all();
 
         $rules['media_url'] = ['nullable', 'string', 'max:2048'];
-        $rules['media_file'] = [
-            'nullable', 'file',
-            'mimetypes:video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/gif,image/webp',
-            'max:51200',
-        ];
+        $rules['media_file'] = $this->mediaFileRules();
         $rules['order_index'] = [
             'sometimes', 'integer', 'min:1',
             Rule::unique('lessons', 'order_index')->ignore($lesson->id),
         ];
 
-        $validated = $request->validate($rules);
+        $validated = $this->validateLesson(
+            $request,
+            $rules,
+            (string) $request->input('media_type', $lesson->media_type)
+        );
 
         if ($request->hasFile('media_file')) {
             $this->deleteMedia($lesson);

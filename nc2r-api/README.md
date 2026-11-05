@@ -93,8 +93,15 @@ Google/Facebook buttons are mobile/web only (not Windows desktop).
 The stack in `docker-compose.yml` runs the API on Apache + PHP 8.3 with a read-only root filesystem, no Linux capabilities beyond what Apache needs, and `no-new-privileges`.
 
 1. Copy the project to the server and place your real `.env` next to `docker-compose.yml`. It is git-ignored and is read at runtime through `env_file`, so it is never copied into the image.
-2. `docker compose up -d --build`
-3. The app is served at the `APP_URL` port (`http://localhost:8000` by default). Health: `docker compose ps`.
-4. Migrations are not run automatically. Run them only when needed: `docker compose exec api php artisan migrate --force`.
+2. Add the video folder on the HDD to `.env` (forward slashes work on Windows), e.g. `MEDIA_HOST_PATH=D:/nc2r/uploads`. Create that folder first. Docker Desktop must have the drive shared (Settings > Resources > File sharing).
+3. `docker compose up -d --build`
+4. The app is served at the `APP_URL` port (`http://localhost:8000` by default). Health: `docker compose ps`.
+5. Migrations are not run automatically. Run them only when needed: `docker compose exec api php artisan migrate --force`.
+
+### Video storage and upload limits
+
+- Lesson media is saved to `MEDIA_HOST_PATH` on the HDD: videos under `lessons/`, temp uploads under `tmp/`.
+- Max video size is 2 GB (`LessonController::MAX_VIDEO_KB`). Max image size is 50 MB. PHP (`docker/php/hardening.ini`) and Apache (`docker/apache/zz-hardening.conf`) are set to match.
+- If you change the video limit, update `MAX_VIDEO_KB`, `upload_max_filesize` and `post_max_size` together.
 
 The compose file forces `APP_ENV=production`, `APP_DEBUG=false` and `LOG_LEVEL=error`, overriding `.env`. Set `SESSION_SECURE_COOKIE=true` in `.env` only when you serve over HTTPS.
