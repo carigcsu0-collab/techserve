@@ -3,7 +3,7 @@
 ;   ISCC.exe /DMyAppVersion=1.0.0 windows\installer\nc2r.iss
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.2"
+  #define MyAppVersion "1.0.7"
 #endif
 
 #define MyAppName "nc2r"
