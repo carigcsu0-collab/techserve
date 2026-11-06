@@ -33,8 +33,9 @@ class Lesson {
       mediaUrl: json['media_url'] as String?,
       mediaType: json['media_type'] as String,
       orderIndex: json['order_index'] as int,
-      isUnlocked: json['is_unlocked'] as bool,
-      isCompleted: json['is_completed'] as bool,
+      // Admin create/update replies omit learner progress, so default these.
+      isUnlocked: json['is_unlocked'] as bool? ?? false,
+      isCompleted: json['is_completed'] as bool? ?? false,
       qualificationId: json['qualification_id'] as int?,
       isPublished: json['is_published'] as bool? ?? true,
     );
