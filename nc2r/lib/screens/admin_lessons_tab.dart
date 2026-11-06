@@ -120,10 +120,12 @@ class _AdminLessonsTabState extends ConsumerState<AdminLessonsTab> {
         label: const Text('New Lesson'),
         onPressed: () {
           final all = lessonsAsync.value ?? const <Lesson>[];
+          // order_index is unique across all lessons, so count from the highest used value.
+          final highest = all.fold<int>(0, (m, l) => l.orderIndex > m ? l.orderIndex : m);
           Navigator.of(context).push(
             SlidePageRoute(
               builder: (_) => AdminLessonFormScreen(
-                nextOrderIndex: all.length + 1,
+                nextOrderIndex: highest + 1,
                 qualificationId: _filter > 0 ? _filter : null,
               ),
             ),
