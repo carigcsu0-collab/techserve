@@ -8,12 +8,70 @@
 #   3. docker compose logs -f api   (check the health status with: docker compose ps)
 #
 # Database: the connection (DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD...) comes from .env.
-# Migrations are NOT run automatically; run them manually only when you need them:
-#   docker compose exec api php artisan migrate --force
+# Migrations: the "migrate" service runs `php artisan migrate --force` on every `docker compose up`
+# and must finish successfully before "api" starts. Run it alone with:
+#   docker compose run --rm migrate
+#
+# Gmail for email OTP (free): set these in the stack environment, then redeploy:
+#   MAIL_MAILER=smtp  MAIL_HOST=smtp.gmail.com  MAIL_PORT=587  MAIL_SCHEME=tls
+#   MAIL_USERNAME=<your gmail address>  MAIL_PASSWORD=<16-character Gmail App Password>
+#   MAIL_FROM_ADDRESS=<your gmail address>
+# The App Password needs 2-Step Verification on the Google account (myaccount.google.com/apppasswords).
 
 name: nc2r-api
 
 services:
+  # One-shot: applies pending migrations, then exits. "api" waits for it to finish successfully.
+  migrate:
+    build:
+      # Built from the GitHub repo (nc2r-api folder on main), not from the local copy.
+      context: https://github.com/carigcsu0-collab/techserve.git#main:nc2r-api
+      dockerfile: Dockerfile
+    image: nc2r-api:latest
+    pull_policy: build
+    container_name: nc2r-migrate
+    restart: "no"
+    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    user: "33:33"
+
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_LEVEL: error
+      QUEUE_CONNECTION: database
+      APP_KEY: "${APP_KEY?Set APP_KEY in the stack environment}"
+      APP_URL: "${APP_URL:-https://dtc-main-pc.tail9ac631.ts.net/app2}"
+      DB_CONNECTION: "${DB_CONNECTION:-mysql}"
+      DB_HOST: "${DB_HOST?Set DB_HOST in the stack environment}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE?Set DB_DATABASE in the stack environment}"
+      DB_USERNAME: "${DB_USERNAME?Set DB_USERNAME in the stack environment}"
+      DB_PASSWORD: "${DB_PASSWORD?Set DB_PASSWORD in the stack environment}"
+
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/www/html/bootstrap/cache:mode=0775,uid=33,gid=33
+    volumes:
+      - type: bind
+        source: ${MEDIA_HOST_PATH:?Set MEDIA_HOST_PATH in .env, e.g. D:/nc2r/uploads}
+        target: /var/www/html/storage/app
+        bind:
+          create_host_path: false
+      - nc2r-storage:/var/www/html/storage
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   api:
     build:
       # Built from the GitHub repo (nc2r-api folder on main), not from the local copy.
@@ -24,6 +82,9 @@ services:
     pull_policy: build
     container_name: nc2r-api
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
     # env_file:
     #   - path: .env

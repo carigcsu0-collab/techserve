@@ -130,8 +130,32 @@ class ApiService {
     return AppUser.fromJson(data);
   }
 
-  Future<AppUser> updateProfile(String name) async {
-    final data = await _put('/user/profile', {'name': name});
+  /// Only the fields passed are sent; the server keeps the rest unchanged.
+  /// Pass an empty string to clear bio, phone, or location.
+  Future<AppUser> updateProfile(
+    String name, {
+    String? bio,
+    String? phone,
+    String? location,
+  }) async {
+    final data = await _put('/user/profile', {
+      'name': name,
+      'bio': ?bio,
+      'phone': ?phone,
+      'location': ?location,
+    });
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<AppUser> uploadAvatar(String filePath) async {
+    final data = await _sendForm('POST', '/user/avatar', {
+      'avatar': await MultipartFile.fromFile(filePath),
+    });
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<AppUser> removeAvatar() async {
+    final data = await _delete('/user/avatar');
     return AppUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 

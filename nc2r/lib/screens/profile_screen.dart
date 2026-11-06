@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/app_user.dart';
 import '../providers/api_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/error_messages.dart';
@@ -23,16 +25,46 @@ class ProfileScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Center(
-            child: CircleAvatar(
-              radius: 44,
-              backgroundColor: theme.colorScheme.primary,
-              child: Text(
-                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                ),
+            child: GestureDetector(
+              onTap: () => _changeAvatar(context, ref, user.avatarUrl != null),
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 44,
+                    backgroundColor: theme.colorScheme.primary,
+                    backgroundImage: user.avatarUrl != null
+                        ? NetworkImage(user.avatarUrl!)
+                        : null,
+                    onBackgroundImageError: user.avatarUrl != null
+                        ? (error, stackTrace) {}
+                        : null,
+                    child: user.avatarUrl != null
+                        ? null
+                        : Text(
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: theme.colorScheme.surface,
+                      child: Icon(
+                        Icons.camera_alt,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -53,16 +85,37 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (user.bio != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              user.bio!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+          if (user.location != null || user.phone != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              [
+                if (user.location != null) user.location!,
+                if (user.phone != null) user.phone!,
+              ].join('  •  '),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Card(
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.badge_outlined),
-                  title: const Text('Name'),
-                  subtitle: Text(user.name),
+                  title: const Text('Edit profile'),
+                  subtitle: const Text('Name, bio, phone and location'),
                   trailing: const Icon(Icons.edit_outlined),
-                  onTap: () => _editName(context, ref, user.name),
+                  onTap: () => _editProfile(context, ref, user),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -90,20 +143,73 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _editName(
+  Future<void> _editProfile(
     BuildContext context,
     WidgetRef ref,
-    String current,
+    AppUser user,
   ) async {
-    final name = await showDialog<String>(
+    final form = await showDialog<_ProfileForm>(
       context: context,
-      builder: (_) => _EditNameDialog(initial: current),
+      builder: (_) => _EditProfileDialog(user: user),
     );
-    if (name == null || name == current || !context.mounted) return;
+    if (form == null || !context.mounted) return;
 
     try {
-      await ref.read(authProvider.notifier).updateName(name);
-      if (context.mounted) _show(context, 'Name updated.');
+      await ref
+          .read(authProvider.notifier)
+          .updateProfileDetails(
+            name: form.name,
+            bio: form.bio,
+            phone: form.phone,
+            location: form.location,
+          );
+      if (context.mounted) _show(context, 'Profile updated.');
+    } catch (e) {
+      if (context.mounted) _show(context, friendlyError(e));
+    }
+  }
+
+  Future<void> _changeAvatar(
+    BuildContext context,
+    WidgetRef ref,
+    bool hasAvatar,
+  ) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose photo'),
+              onTap: () => Navigator.pop(sheetContext, 'choose'),
+            ),
+            if (hasAvatar)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Remove photo'),
+                onTap: () => Navigator.pop(sheetContext, 'remove'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+
+    try {
+      final notifier = ref.read(authProvider.notifier);
+      if (choice == 'remove') {
+        await notifier.removeAvatar();
+        if (context.mounted) _show(context, 'Profile photo removed.');
+        return;
+      }
+
+      final result = await FilePicker.pickFile(type: FileType.image);
+      final path = result?.path;
+      if (path == null || !context.mounted) return;
+
+      await notifier.uploadAvatar(path);
+      if (context.mounted) _show(context, 'Profile photo updated.');
     } catch (e) {
       if (context.mounted) _show(context, friendlyError(e));
     }
@@ -168,44 +274,104 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _EditNameDialog extends StatefulWidget {
-  final String initial;
+class _ProfileForm {
+  final String name;
+  final String bio;
+  final String phone;
+  final String location;
 
-  const _EditNameDialog({required this.initial});
-
-  @override
-  State<_EditNameDialog> createState() => _EditNameDialogState();
+  const _ProfileForm({
+    required this.name,
+    required this.bio,
+    required this.phone,
+    required this.location,
+  });
 }
 
-class _EditNameDialogState extends State<_EditNameDialog> {
-  late final _controller = TextEditingController(text: widget.initial);
+class _EditProfileDialog extends StatefulWidget {
+  final AppUser user;
+
+  const _EditProfileDialog({required this.user});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final _name = TextEditingController(text: widget.user.name);
+  late final _bio = TextEditingController(text: widget.user.bio ?? '');
+  late final _phone = TextEditingController(text: widget.user.phone ?? '');
+  late final _location = TextEditingController(
+    text: widget.user.location ?? '',
+  );
   String? _error;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _name.dispose();
+    _bio.dispose();
+    _phone.dispose();
+    _location.dispose();
     super.dispose();
   }
 
   void _save() {
-    final name = _controller.text.trim();
+    final name = _name.text.trim();
     if (name.isEmpty) {
       setState(() => _error = 'Enter your name.');
       return;
     }
-    Navigator.pop(context, name);
+    Navigator.pop(
+      context,
+      _ProfileForm(
+        name: name,
+        bio: _bio.text.trim(),
+        phone: _phone.text.trim(),
+        location: _location.text.trim(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit name'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(labelText: 'Name', errorText: _error),
-        onSubmitted: (_) => _save(),
+      title: const Text('Edit profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                errorText: _error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _bio,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Bio'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _phone,
+              maxLength: 32,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _location,
+              maxLength: 120,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Location'),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

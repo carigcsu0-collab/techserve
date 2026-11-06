@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/profile', [UserController::class, 'updateProfile']);
     Route::put('/user/password', [UserController::class, 'updatePassword']);
+    Route::post('/user/avatar', [UserController::class, 'updateAvatar']);
+    Route::delete('/user/avatar', [UserController::class, 'destroyAvatar']);
 
     Route::get('/lessons', [LessonController::class, 'index']);
     Route::get('/qualifications', [QualificationController::class, 'index']);

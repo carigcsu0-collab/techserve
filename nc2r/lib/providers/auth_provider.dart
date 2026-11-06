@@ -148,6 +148,28 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
     final updated = await ref.read(apiServiceProvider).updateProfile(name);
     state = AsyncValue.data(updated);
   }
+
+  Future<void> updateProfileDetails({
+    required String name,
+    required String bio,
+    required String phone,
+    required String location,
+  }) async {
+    final updated = await ref
+        .read(apiServiceProvider)
+        .updateProfile(name, bio: bio, phone: phone, location: location);
+    state = AsyncValue.data(updated);
+  }
+
+  Future<void> uploadAvatar(String filePath) async {
+    final updated = await ref.read(apiServiceProvider).uploadAvatar(filePath);
+    state = AsyncValue.data(updated);
+  }
+
+  Future<void> removeAvatar() async {
+    final updated = await ref.read(apiServiceProvider).removeAvatar();
+    state = AsyncValue.data(updated);
+  }
 }
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, AppUser?>(
