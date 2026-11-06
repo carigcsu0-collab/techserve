@@ -6,7 +6,7 @@ import '../providers/api_provider.dart';
 import '../providers/lesson_provider.dart';
 import '../services/error_messages.dart';
 
-/// Qualifications tab of the admin shell: create, edit, publish, reorder, delete.
+/// Qualifications tab of the admin shell: create, edit, reorder, delete.
 class AdminQualificationsTab extends ConsumerStatefulWidget {
   const AdminQualificationsTab({super.key});
 
@@ -44,17 +44,6 @@ class _AdminQualificationsTabState
     } finally {
       if (mounted) setState(() => _pendingOrder = null);
       _refresh();
-    }
-  }
-
-  Future<void> _togglePublished(Qualification q, bool value) async {
-    try {
-      await ref
-          .read(apiServiceProvider)
-          .updateQualification(q.id, isPublished: value);
-      _refresh();
-    } catch (e) {
-      _showError(e);
     }
   }
 
@@ -105,14 +94,12 @@ class _AdminQualificationsTabState
         await api.createQualification(
           title: result.title,
           description: result.description,
-          isPublished: result.isPublished,
         );
       } else {
         await api.updateQualification(
           existing.id,
           title: result.title,
           description: result.description,
-          isPublished: result.isPublished,
         );
       }
       _refresh();
@@ -172,18 +159,11 @@ class _AdminQualificationsTabState
                 child: ListTile(
                   leading: CircleAvatar(child: Text('${index + 1}')),
                   title: Text(q.title),
-                  subtitle: Text(
-                    '${q.lessonCount} lesson(s)'
-                    '${q.isPublished ? '' : ' · Draft: hidden from learners'}',
-                  ),
+                  subtitle: Text('${q.lessonCount} lesson(s)'),
                   onTap: () => _edit(existing: q),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Switch(
-                        value: q.isPublished,
-                        onChanged: (v) => _togglePublished(q, v),
-                      ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
                         tooltip: 'Delete',
@@ -211,12 +191,10 @@ class _AdminQualificationsTabState
 class _QualificationInput {
   final String title;
   final String description;
-  final bool isPublished;
 
   const _QualificationInput({
     required this.title,
     required this.description,
-    required this.isPublished,
   });
 }
 
@@ -233,7 +211,6 @@ class _QualificationDialogState extends State<_QualificationDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _title;
   late final TextEditingController _description;
-  late bool _isPublished;
 
   @override
   void initState() {
@@ -241,7 +218,6 @@ class _QualificationDialogState extends State<_QualificationDialog> {
     _title = TextEditingController(text: widget.existing?.title ?? '');
     _description =
         TextEditingController(text: widget.existing?.description ?? '');
-    _isPublished = widget.existing?.isPublished ?? true;
   }
 
   @override
@@ -275,14 +251,6 @@ class _QualificationDialogState extends State<_QualificationDialog> {
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Published'),
-                subtitle: const Text('Learners can see this qualification'),
-                value: _isPublished,
-                onChanged: (v) => setState(() => _isPublished = v),
-              ),
             ],
           ),
         ),
@@ -299,7 +267,6 @@ class _QualificationDialogState extends State<_QualificationDialog> {
               _QualificationInput(
                 title: _title.text.trim(),
                 description: _description.text.trim(),
-                isPublished: _isPublished,
               ),
             );
           },

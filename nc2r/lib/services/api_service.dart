@@ -281,6 +281,10 @@ class ApiService {
         .toList();
   }
 
+  Future<void> deleteQuizSubmission(int quizId, int submissionId) async {
+    await _delete('/admin/quizzes/$quizId/submissions/$submissionId');
+  }
+
   // ---- Admin: dashboard, activity, users ----
 
   Future<({DashboardStats stats, List<AuditEntry> recent})>
@@ -320,6 +324,41 @@ class ApiService {
     return ManagedUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 
+  Future<ManagedUser> createUser({
+    required String name,
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    final data = await _post('/admin/users', {
+      'name': name,
+      'email': email,
+      'password': password,
+      'role': role,
+    });
+    return ManagedUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<ManagedUser> updateUser(
+    int id, {
+    required String name,
+    required String email,
+    required String role,
+    String? password,
+  }) async {
+    final data = await _put('/admin/users/$id', {
+      'name': name,
+      'email': email,
+      'role': role,
+      if (password != null && password.isNotEmpty) 'password': password,
+    });
+    return ManagedUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteUser(int id) async {
+    await _delete('/admin/users/$id');
+  }
+
   // ---- Admin: qualifications ----
 
   Future<List<Qualification>> fetchAdminQualifications() async {
@@ -332,12 +371,10 @@ class ApiService {
   Future<Qualification> createQualification({
     required String title,
     required String description,
-    bool isPublished = true,
   }) async {
     final data = await _post('/admin/qualifications', {
       'title': title,
       'description': description,
-      'is_published': isPublished,
     });
     return Qualification.fromJson(data['qualification'] as Map<String, dynamic>);
   }
@@ -346,12 +383,10 @@ class ApiService {
     int id, {
     String? title,
     String? description,
-    bool? isPublished,
   }) async {
     final data = await _put('/admin/qualifications/$id', {
       'title': ?title,
       'description': ?description,
-      'is_published': ?isPublished,
     });
     return Qualification.fromJson(data['qualification'] as Map<String, dynamic>);
   }
@@ -364,14 +399,7 @@ class ApiService {
     await _put('/admin/qualifications/reorder', {'ids': ids});
   }
 
-  // ---- Admin: lesson publishing and ordering ----
-
-  Future<Lesson> setLessonPublished(int id, bool isPublished) async {
-    final data = await _put('/admin/lessons/$id/publish', {
-      'is_published': isPublished,
-    });
-    return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
-  }
+  // ---- Admin: lesson ordering ----
 
   /// [ids] must list every lesson in [qualificationId] (null = unassigned) exactly once.
   Future<void> reorderLessons(int? qualificationId, List<int> ids) async {

@@ -3,7 +3,6 @@ class Qualification {
   final String title;
   final String description;
   final int orderIndex;
-  final bool isPublished;
   final int lessonCount;
   final int completedCount;
   final double progress; // 0 to 1, learner view only
@@ -14,7 +13,6 @@ class Qualification {
     required this.title,
     required this.description,
     this.orderIndex = 1,
-    this.isPublished = true,
     this.lessonCount = 0,
     this.completedCount = 0,
     this.progress = 0,
@@ -29,7 +27,6 @@ class Qualification {
       title: json['title'] as String,
       description: (json['description'] as String?) ?? '',
       orderIndex: (json['order_index'] as int?) ?? 1,
-      isPublished: (json['is_published'] as bool?) ?? true,
       lessonCount: (json['lesson_count'] as int?) ?? 0,
       completedCount: (json['completed_count'] as int?) ?? 0,
       progress: ((json['progress'] as num?) ?? 0).toDouble(),

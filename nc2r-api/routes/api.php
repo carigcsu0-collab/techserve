@@ -44,6 +44,9 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::get('/users/{user}', [AdminUserController::class, 'show']);
+    Route::post('/users', [AdminUserController::class, 'store']);
+    Route::put('/users/{user}', [AdminUserController::class, 'update']);
+    Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
     Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
 
     Route::get('/qualifications', [AdminQualificationController::class, 'index']);
@@ -55,13 +58,13 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/lessons', [AdminLessonController::class, 'store']);
     Route::put('/lessons/reorder', [AdminLessonController::class, 'reorder']);
     Route::put('/lessons/{lesson}', [AdminLessonController::class, 'update']);
-    Route::put('/lessons/{lesson}/publish', [AdminLessonController::class, 'publish']);
     Route::delete('/lessons/{lesson}', [AdminLessonController::class, 'destroy']);
 
     Route::post('/lessons/{lesson}/quiz', [AdminQuizController::class, 'store']);
     Route::put('/quizzes/{quiz}', [AdminQuizController::class, 'update']);
     Route::delete('/quizzes/{quiz}', [AdminQuizController::class, 'destroy']);
     Route::get('/quizzes/{quiz}/submissions', [AdminQuizController::class, 'submissions']);
+    Route::delete('/quizzes/{quiz}/submissions/{submission}', [AdminQuizController::class, 'destroySubmission']);
 
     Route::post('/quizzes/{quiz}/questions', [AdminQuestionController::class, 'store']);
     Route::put('/questions/{question}', [AdminQuestionController::class, 'update']);

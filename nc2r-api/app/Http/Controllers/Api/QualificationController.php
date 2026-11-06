@@ -24,16 +24,15 @@ class QualificationController extends Controller
             ->flip();
 
         $qualifications = Qualification::query()
-            ->when(! $isAdmin, fn ($query) => $query->published())
-            ->with(['lessons' => fn ($query) => $isAdmin ? $query : $query->published()])
+            ->with('lessons')
             ->orderBy('order_index')
             ->get()
-            ->map(function (Qualification $qualification) use ($completedIds, $isAdmin) {
+            ->map(function (Qualification $qualification) use ($completedIds) {
                 $lessons = $qualification->lessons;
                 $completed = $lessons->filter(fn (Lesson $lesson) => $completedIds->has($lesson->id))->count();
                 $total = $lessons->count();
 
-                $data = [
+                return [
                     'id' => $qualification->id,
                     'title' => $qualification->title,
                     'description' => $qualification->description,
@@ -43,12 +42,6 @@ class QualificationController extends Controller
                     'progress' => $total > 0 ? round($completed / $total, 4) : 0.0,
                     'is_completed' => $total > 0 && $completed === $total,
                 ];
-
-                if ($isAdmin) {
-                    $data['is_published'] = $qualification->is_published;
-                }
-
-                return $data;
             });
 
         return response()->json(['qualifications' => $qualifications->values()]);
@@ -61,20 +54,13 @@ class QualificationController extends Controller
     {
         $user = $request->user();
 
-        if (! $qualification->is_published && ! $user->isAdmin()) {
-            abort(404);
-        }
-
-        $lessons = $qualification->lessons()
-            ->when(! $user->isAdmin(), fn ($query) => $query->published())
-            ->get();
+        $lessons = $qualification->lessons()->get();
 
         return response()->json([
             'qualification' => [
                 'id' => $qualification->id,
                 'title' => $qualification->title,
                 'description' => $qualification->description,
-                'is_published' => $qualification->is_published,
             ],
             'lessons' => app(LessonProgress::class)->present($lessons, $user)->values(),
         ]);

@@ -19,7 +19,6 @@ class Lesson extends Model
         'media_url',
         'media_type',
         'order_index',
-        'is_published',
         'qualification_id',
     ];
 
@@ -27,14 +26,8 @@ class Lesson extends Model
     {
         return [
             'order_index' => 'integer',
-            'is_published' => 'boolean',
             'qualification_id' => 'integer',
         ];
-    }
-
-    public function scopePublished($query)
-    {
-        return $query->where('is_published', true);
     }
 
     public function qualification(): BelongsTo
@@ -63,12 +56,12 @@ class Lesson extends Model
     }
 
     /**
-     * The lesson that must be completed before this one unlocks: the published
-     * lesson in the same qualification with the highest order_index below this one.
+     * The lesson that must be completed before this one unlocks: the lesson
+     * in the same qualification with the highest order_index below this one.
      */
     public function previous(): ?self
     {
-        return static::published()
+        return static::query()
             ->inSameQualification($this->qualification_id)
             ->where('order_index', '<', $this->order_index)
             ->orderByDesc('order_index')
@@ -76,11 +69,11 @@ class Lesson extends Model
     }
 
     /**
-     * The next published lesson in the same qualification.
+     * The next lesson in the same qualification.
      */
     public function next(): ?self
     {
-        return static::published()
+        return static::query()
             ->inSameQualification($this->qualification_id)
             ->where('order_index', '>', $this->order_index)
             ->orderBy('order_index')

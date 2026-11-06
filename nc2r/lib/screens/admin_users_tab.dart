@@ -55,10 +55,81 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
     _load();
   }
 
+  void _showError(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+  }
+
+  Future<void> _openEditor({ManagedUser? existing}) async {
+    final result = await showDialog<_UserInput>(
+      context: context,
+      builder: (_) => _UserDialog(existing: existing),
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      if (existing == null) {
+        await api.createUser(
+          name: result.name,
+          email: result.email,
+          password: result.password ?? '',
+          role: result.role,
+        );
+      } else {
+        await api.updateUser(
+          existing.id,
+          name: result.name,
+          email: result.email,
+          role: result.role,
+          password: result.password,
+        );
+      }
+      _load();
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  Future<void> _delete(ManagedUser u) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete user?'),
+        content: Text('"${u.name}" (${u.email}) will be permanently removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(apiServiceProvider).deleteUser(u.id);
+      _load();
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Users')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openEditor(),
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Add user'),
+      ),
       body: Column(
         children: [
           Padding(
@@ -116,9 +187,25 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
             ),
             title: Text(u.name),
             subtitle: Text(u.email),
-            trailing: Chip(
-              label: Text(u.isAdmin ? 'Admin' : 'Learner'),
-              visualDensity: VisualDensity.compact,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Chip(
+                  label: Text(u.isAdmin ? 'Admin' : 'Learner'),
+                  visualDensity: VisualDensity.compact,
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  onSelected: (value) {
+                    if (value == 'edit') _openEditor(existing: u);
+                    if (value == 'delete') _delete(u);
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
+              ],
             ),
             onTap: () async {
               final changed = await Navigator.of(context).push<bool>(
@@ -131,6 +218,136 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
           );
         },
       ),
+    );
+  }
+}
+
+class _UserInput {
+  final String name;
+  final String email;
+  final String role;
+  final String? password;
+
+  const _UserInput({
+    required this.name,
+    required this.email,
+    required this.role,
+    this.password,
+  });
+}
+
+class _UserDialog extends StatefulWidget {
+  final ManagedUser? existing;
+
+  const _UserDialog({this.existing});
+
+  @override
+  State<_UserDialog> createState() => _UserDialogState();
+}
+
+class _UserDialogState extends State<_UserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _email;
+  final _password = TextEditingController();
+  late String _role;
+
+  bool get _isNew => widget.existing == null;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.existing?.name ?? '');
+    _email = TextEditingController(text: widget.existing?.email ?? '');
+    _role = widget.existing?.role ?? 'user';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_isNew ? 'New user' : 'Edit user'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Enter a valid email'
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _role,
+                decoration: const InputDecoration(labelText: 'Role'),
+                items: const [
+                  DropdownMenuItem(value: 'user', child: Text('Learner')),
+                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                ],
+                onChanged: (v) => setState(() => _role = v ?? 'user'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _password,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: _isNew ? 'Password' : 'New password (optional)',
+                  helperText: _isNew ? 'At least 8 characters' : null,
+                ),
+                validator: (v) {
+                  final value = v ?? '';
+                  if (_isNew && value.length < 8) {
+                    return 'At least 8 characters';
+                  }
+                  if (!_isNew && value.isNotEmpty && value.length < 8) {
+                    return 'At least 8 characters';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) return;
+            Navigator.of(context).pop(
+              _UserInput(
+                name: _name.text.trim(),
+                email: _email.text.trim(),
+                role: _role,
+                password: _password.text.isEmpty ? null : _password.text,
+              ),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

@@ -116,26 +116,6 @@ class LessonController extends Controller
         return response()->json(['lesson' => $lesson->fresh()]);
     }
 
-    public function publish(Request $request, Lesson $lesson)
-    {
-        $validated = $request->validate([
-            'is_published' => ['required', 'boolean'],
-        ]);
-
-        if ($lesson->is_published !== $validated['is_published']) {
-            $lesson->update(['is_published' => $validated['is_published']]);
-
-            AdminAuditLog::record(
-                $request->user(),
-                $lesson->is_published ? 'lesson.published' : 'lesson.unpublished',
-                ($lesson->is_published ? 'Published' : 'Unpublished') . " lesson \"{$lesson->title}\"",
-                $lesson,
-            );
-        }
-
-        return response()->json(['lesson' => $lesson->fresh()]);
-    }
-
     // Lessons are ordered inside one qualification (null = unassigned group).
     // The ids must be exactly that group's lessons. Their existing order_index
     // values are reused in the new order, so the global unique index stays valid.

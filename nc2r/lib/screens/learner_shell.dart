@@ -212,7 +212,7 @@ class _ContinueCard extends StatelessWidget {
           subtitle: Text(
             done
                 ? 'Great work. Check My Learning for your certificates.'
-                : 'Lessons will appear here once they are published.',
+                : 'Lessons will appear here once your admin adds them.',
           ),
         ),
       );

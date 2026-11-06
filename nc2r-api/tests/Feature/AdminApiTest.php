@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
 use App\Models\Lesson;
+use App\Models\Quiz;
+use App\Models\QuizSubmission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -28,7 +30,7 @@ class AdminApiTest extends TestCase
         return $user;
     }
 
-    private function lesson(int $order, bool $published = true): Lesson
+    private function lesson(int $order): Lesson
     {
         return Lesson::create([
             'title' => "Lesson {$order}",
@@ -36,7 +38,6 @@ class AdminApiTest extends TestCase
             'media_type' => 'image',
             'media_url' => 'https://example.com/' . $order . '.png',
             'order_index' => $order,
-            'is_published' => $published,
         ]);
     }
 
@@ -56,29 +57,24 @@ class AdminApiTest extends TestCase
     {
         $admin = $this->admin();
         $this->lesson(1);
-        $this->lesson(2, false);
+        $this->lesson(2);
         AdminAuditLog::record($admin, 'lesson.created', 'Created lesson');
         Sanctum::actingAs($admin);
 
         $this->getJson('/api/admin/dashboard')
             ->assertOk()
             ->assertJsonPath('stats.lessons', 2)
-            ->assertJsonPath('stats.published_lessons', 1)
-            ->assertJsonPath('stats.draft_lessons', 1)
             ->assertJsonPath('recent_activity.0.summary', 'Created lesson');
     }
 
-    public function test_publish_toggle_is_audited(): void
+    public function test_publish_route_is_removed(): void
     {
         $admin = $this->admin();
-        $lesson = $this->lesson(1, false);
+        $lesson = $this->lesson(1);
         Sanctum::actingAs($admin);
 
         $this->putJson("/api/admin/lessons/{$lesson->id}/publish", ['is_published' => true])
-            ->assertOk()
-            ->assertJsonPath('lesson.is_published', true);
-
-        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'lesson.published', 'subject_id' => $lesson->id]);
+            ->assertNotFound();
     }
 
     public function test_reorder_swaps_positions_and_requires_every_id(): void
@@ -109,7 +105,7 @@ class AdminApiTest extends TestCase
         $this->assertSame('admin', $admin->fresh()->role);
     }
 
-    public function test_learners_do_not_see_draft_lessons(): void
+    public function test_learners_see_all_lessons(): void
     {
         $learner = User::create([
             'name' => 'Learner',
@@ -118,11 +114,62 @@ class AdminApiTest extends TestCase
             'email_verified_at' => now(),
         ]);
         $this->lesson(1);
-        $this->lesson(2, false);
+        $this->lesson(2);
         Sanctum::actingAs($learner);
 
         $this->getJson('/api/lessons')
             ->assertOk()
-            ->assertJsonCount(1, 'lessons');
+            ->assertJsonCount(2, 'lessons');
+    }
+
+    public function test_admin_can_create_update_and_delete_users(): void
+    {
+        $admin = $this->admin();
+        Sanctum::actingAs($admin);
+
+        $created = $this->postJson('/api/admin/users', [
+            'name' => 'New Learner',
+            'email' => 'new@x.com',
+            'password' => 'password123',
+            'role' => 'user',
+        ])->assertCreated()->json('user');
+
+        $this->assertDatabaseHas('admin_audit_logs', ['action' => 'user.created']);
+
+        $this->putJson("/api/admin/users/{$created['id']}", ['name' => 'Renamed', 'role' => 'admin'])
+            ->assertOk()
+            ->assertJsonPath('user.name', 'Renamed')
+            ->assertJsonPath('user.role', 'admin');
+
+        $this->deleteJson("/api/admin/users/{$created['id']}")->assertOk();
+        $this->assertDatabaseMissing('users', ['id' => $created['id']]);
+    }
+
+    public function test_admin_cannot_delete_or_demote_themselves_via_crud(): void
+    {
+        $admin = $this->admin();
+        Sanctum::actingAs($admin);
+
+        $this->deleteJson("/api/admin/users/{$admin->id}")->assertUnprocessable();
+        $this->putJson("/api/admin/users/{$admin->id}", ['role' => 'user'])->assertUnprocessable();
+        $this->assertSame('admin', $admin->fresh()->role);
+    }
+
+    public function test_admin_can_delete_quiz_submission(): void
+    {
+        $admin = $this->admin();
+        $lesson = $this->lesson(1);
+        $quiz = Quiz::create(['lesson_id' => $lesson->id, 'passing_score' => 50]);
+        $submission = QuizSubmission::create([
+            'user_id' => $admin->id,
+            'quiz_id' => $quiz->id,
+            'answers' => [],
+            'score' => 0,
+            'passed' => false,
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->deleteJson("/api/admin/quizzes/{$quiz->id}/submissions/{$submission->id}")->assertOk();
+        $this->assertDatabaseMissing('quiz_submissions', ['id' => $submission->id]);
     }
 }

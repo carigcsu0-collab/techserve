@@ -8,6 +8,7 @@ use App\Models\Lesson;
 use App\Models\QuizSubmission;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -60,7 +61,7 @@ class UserController extends Controller
         return response()->json([
             'user' => $this->summary($user),
             'progress' => [
-                'total_lessons' => Lesson::published()->count(),
+                'total_lessons' => Lesson::count(),
                 'completed_count' => $completedLessons->count(),
                 'completed_lessons' => $completedLessons,
             ],
@@ -92,6 +93,93 @@ class UserController extends Controller
         }
 
         return response()->json(['user' => $this->summary($user->fresh())]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+            'role' => ['required', 'in:admin,user'],
+        ]);
+
+        $admin = $request->user();
+
+        $user = new User([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+        $user->forceFill([
+            'role' => $validated['role'],
+            'email_verified_at' => now(),
+        ])->save();
+
+        AdminAuditLog::record(
+            $admin,
+            'user.created',
+            "Created user {$user->email} as {$user->role}",
+            $user,
+        );
+
+        return response()->json(['user' => $this->summary($user)], 201);
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,'.$user->id],
+            'password' => ['sometimes', 'nullable', 'string', 'min:8'],
+            'role' => ['sometimes', 'required', 'in:admin,user'],
+        ]);
+
+        $admin = $request->user();
+
+        if ($user->id === $admin->id && isset($validated['role']) && $validated['role'] !== 'admin') {
+            return response()->json(['message' => 'You cannot remove your own admin role.'], 422);
+        }
+
+        $changes = [];
+        foreach (['name', 'email'] as $field) {
+            if (isset($validated[$field])) {
+                $user->{$field} = $validated[$field];
+            }
+        }
+        if (! empty($validated['password'])) {
+            $user->password = Hash::make($validated['password']);
+            $changes[] = 'password';
+        }
+        if (isset($validated['role'])) {
+            $user->role = $validated['role'];
+        }
+        $user->save();
+
+        AdminAuditLog::record(
+            $admin,
+            'user.updated',
+            "Updated user {$user->email}".($changes ? ' ('.implode(', ', $changes).' changed)' : ''),
+            $user,
+        );
+
+        return response()->json(['user' => $this->summary($user->fresh())]);
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        $admin = $request->user();
+
+        if ($user->id === $admin->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 422);
+        }
+
+        $email = $user->email;
+        $user->delete();
+
+        AdminAuditLog::record($admin, 'user.deleted', "Deleted user {$email}");
+
+        return response()->json(['message' => 'User deleted.']);
     }
 
     private function summary(User $user): array

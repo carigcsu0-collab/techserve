@@ -11,20 +11,13 @@ class Qualification extends Model
         'title',
         'description',
         'order_index',
-        'is_published',
     ];
 
     protected function casts(): array
     {
         return [
             'order_index' => 'integer',
-            'is_published' => 'boolean',
         ];
-    }
-
-    public function scopePublished($query)
-    {
-        return $query->where('is_published', true);
     }
 
     public function lessons(): HasMany

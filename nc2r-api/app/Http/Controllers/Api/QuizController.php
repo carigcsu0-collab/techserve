@@ -22,7 +22,6 @@ class QuizController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user->isAdmin() || $lesson->is_published, 404);
         abort_unless($user->isAdmin() || $lesson->isUnlockedFor($user), 403, 'This lesson is locked.');
 
         $quiz = $lesson->quiz()->with('questions')->firstOrFail();
@@ -64,7 +63,6 @@ class QuizController extends Controller
         ]);
 
         $user = $request->user();
-        abort_unless($user->isAdmin() || $quiz->lesson?->is_published, 404);
         $questions = $quiz->questions;
         $total = $questions->count();
 

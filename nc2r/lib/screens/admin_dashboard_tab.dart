@@ -127,8 +127,6 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
       (Icons.people_alt_outlined, 'Users', '${s.users}'),
       (Icons.admin_panel_settings_outlined, 'Admins', '${s.admins}'),
       (Icons.menu_book_outlined, 'Lessons', '${s.lessons}'),
-      (Icons.publish_outlined, 'Published', '${s.publishedLessons}'),
-      (Icons.edit_note_outlined, 'Drafts', '${s.draftLessons}'),
       (Icons.quiz_outlined, 'Quiz attempts', '${s.quizSubmissions}'),
       (Icons.verified_outlined, 'Pass rate', '${s.passRate}%'),
       (Icons.insights_outlined, 'Avg score',

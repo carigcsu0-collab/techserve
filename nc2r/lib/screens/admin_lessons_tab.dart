@@ -14,8 +14,8 @@ import 'admin_quiz_screen.dart';
 const int _filterAll = -1;
 const int _filterUnassigned = 0;
 
-/// Lessons tab of the admin shell: publish toggle, qualification filter,
-/// and drag-to-reorder within a single qualification.
+/// Lessons tab of the admin shell: qualification filter and
+/// drag-to-reorder within a single qualification.
 class AdminLessonsTab extends ConsumerStatefulWidget {
   const AdminLessonsTab({super.key});
 
@@ -29,15 +29,6 @@ class _AdminLessonsTabState extends ConsumerState<AdminLessonsTab> {
 
   /// Ids in the order the admin just dragged them to, until the save completes.
   List<int>? _pendingOrder;
-
-  Future<void> _togglePublished(Lesson lesson, bool value) async {
-    try {
-      await ref.read(apiServiceProvider).setLessonPublished(lesson.id, value);
-      ref.invalidate(lessonProvider);
-    } catch (e) {
-      _showError(e);
-    }
-  }
 
   Future<void> _reorder(
       int? qualificationId, List<Lesson> group, int oldIndex, int newIndex) async {
@@ -186,7 +177,6 @@ class _AdminLessonsTabState extends ConsumerState<AdminLessonsTab> {
                         key: ValueKey(lesson.id),
                         lesson: lesson,
                         dragIndex: index,
-                        onPublishedChanged: (v) => _togglePublished(lesson, v),
                         onEdit: () => _openForm(lesson),
                         onQuiz: () => _openQuiz(lesson),
                         onDelete: () => _confirmDelete(lesson),
@@ -204,7 +194,6 @@ class _AdminLessonsTabState extends ConsumerState<AdminLessonsTab> {
                       final lesson = visible[index];
                       return _LessonCard(
                         lesson: lesson,
-                        onPublishedChanged: (v) => _togglePublished(lesson, v),
                         onEdit: () => _openForm(lesson),
                         onQuiz: () => _openQuiz(lesson),
                         onDelete: () => _confirmDelete(lesson),
@@ -247,7 +236,6 @@ class _AdminLessonsTabState extends ConsumerState<AdminLessonsTab> {
 class _LessonCard extends StatelessWidget {
   final Lesson lesson;
   final int? dragIndex;
-  final ValueChanged<bool> onPublishedChanged;
   final VoidCallback onEdit;
   final VoidCallback onQuiz;
   final VoidCallback onDelete;
@@ -255,7 +243,6 @@ class _LessonCard extends StatelessWidget {
   const _LessonCard({
     super.key,
     required this.lesson,
-    required this.onPublishedChanged,
     required this.onEdit,
     required this.onQuiz,
     required this.onDelete,
@@ -264,33 +251,19 @@ class _LessonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
         leading: CircleAvatar(child: Text('${lesson.orderIndex}')),
         title: Text(lesson.title),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              lesson.description,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (!lesson.isPublished)
-              Text(
-                'Draft: hidden from learners',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-          ],
+        subtitle: Text(
+          lesson.description,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Switch(value: lesson.isPublished, onChanged: onPublishedChanged),
             PopupMenuButton<String>(
               onSelected: (action) {
                 switch (action) {

@@ -97,7 +97,6 @@ class QualificationController extends Controller
             'title' => [$prefix, 'string', 'max:255'],
             'description' => [$prefix, 'string'],
             'order_index' => ['sometimes', 'integer', 'min:1'],
-            'is_published' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -108,7 +107,6 @@ class QualificationController extends Controller
             'title' => $qualification->title,
             'description' => $qualification->description,
             'order_index' => $qualification->order_index,
-            'is_published' => $qualification->is_published,
             'lesson_count' => $qualification->lessons_count ?? $qualification->lessons()->count(),
         ];
     }

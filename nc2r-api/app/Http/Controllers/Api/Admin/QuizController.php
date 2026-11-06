@@ -45,6 +45,15 @@ class QuizController extends Controller
         return response()->json(['message' => 'Quiz deleted']);
     }
 
+    public function destroySubmission(Quiz $quiz, QuizSubmission $submission)
+    {
+        abort_unless($submission->quiz_id === $quiz->id, 404);
+
+        $submission->delete();
+
+        return response()->json(['message' => 'Submission deleted']);
+    }
+
     /**
      * List learner submissions for a quiz, with a per-question breakdown
      * showing each submitted answer, the correct answer, and whether it

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/lesson.dart';
 import '../models/quiz.dart';
 import '../models/quiz_submission.dart';
+import '../providers/api_provider.dart';
 import '../providers/quiz_provider.dart';
+import '../services/error_messages.dart';
 
 /// Admin view of every learner's quiz attempt — shows each submitted
 /// answer alongside the correct answer with correct/wrong marking.
@@ -51,19 +53,61 @@ class AdminSubmissionsScreen extends ConsumerWidget {
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: submissions.length,
-                  itemBuilder: (context, i) =>
-                      _SubmissionCard(submission: submissions[i]),
+                  itemBuilder: (context, i) => _SubmissionCard(
+                    submission: submissions[i],
+                    onDelete: () => _delete(context, ref, submissions[i]),
+                  ),
                 ),
               ),
       ),
     );
   }
+
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    QuizSubmission submission,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete attempt?'),
+        content: Text(
+          'The attempt by ${submission.userName} will be permanently removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref
+          .read(apiServiceProvider)
+          .deleteQuizSubmission(quiz.id, submission.id);
+      ref.invalidate(quizSubmissionsProvider(quiz.id));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+    }
+  }
 }
 
 class _SubmissionCard extends StatelessWidget {
   final QuizSubmission submission;
+  final VoidCallback onDelete;
 
-  const _SubmissionCard({required this.submission});
+  const _SubmissionCard({required this.submission, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +156,14 @@ class _SubmissionCard extends StatelessWidget {
           const Divider(height: 1),
           for (var i = 0; i < submission.answers.length; i++)
             _AnswerTile(index: i + 1, answer: submission.answers[i]),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete attempt'),
+            ),
+          ),
           const SizedBox(height: 8),
         ],
       ),

@@ -17,7 +17,6 @@ class LessonController extends Controller
         $user = $request->user();
 
         $lessons = Lesson::query()
-            ->when(! $user->isAdmin(), fn ($query) => $query->published())
             ->orderBy('order_index')
             ->get();
 

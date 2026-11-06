@@ -2,8 +2,6 @@ class DashboardStats {
   final int users;
   final int admins;
   final int lessons;
-  final int publishedLessons;
-  final int draftLessons;
   final int quizSubmissions;
   final int passRate;
   final double averageScore;
@@ -12,8 +10,6 @@ class DashboardStats {
     required this.users,
     required this.admins,
     required this.lessons,
-    required this.publishedLessons,
-    required this.draftLessons,
     required this.quizSubmissions,
     required this.passRate,
     required this.averageScore,
@@ -24,8 +20,6 @@ class DashboardStats {
       users: json['users'] as int? ?? 0,
       admins: json['admins'] as int? ?? 0,
       lessons: json['lessons'] as int? ?? 0,
-      publishedLessons: json['published_lessons'] as int? ?? 0,
-      draftLessons: json['draft_lessons'] as int? ?? 0,
       quizSubmissions: json['quiz_submissions'] as int? ?? 0,
       passRate: json['pass_rate'] as int? ?? 0,
       averageScore: ((json['average_score'] as num?) ?? 0).toDouble(),

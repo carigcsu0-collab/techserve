@@ -11,7 +11,6 @@ void main() {
       'media_type': 'video',
       'order_index': 3,
       'qualification_id': null,
-      'is_published': true,
     });
 
     expect(lesson.id, 7);

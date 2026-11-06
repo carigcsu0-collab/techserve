@@ -36,7 +36,7 @@ class LessonProgress
             $isCompleted = $completedIds->has($lesson->id);
             $previousCompleted[$group] = $isCompleted;
 
-            $data = [
+            return [
                 'id' => $lesson->id,
                 'qualification_id' => $lesson->qualification_id,
                 'title' => $lesson->title,
@@ -47,12 +47,6 @@ class LessonProgress
                 'is_unlocked' => $isUnlocked,
                 'is_completed' => $isCompleted,
             ];
-
-            if ($isAdmin) {
-                $data['is_published'] = $lesson->is_published;
-            }
-
-            return $data;
         });
     }
 }

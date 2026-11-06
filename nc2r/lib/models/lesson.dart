@@ -8,7 +8,6 @@ class Lesson {
   final bool isUnlocked;
   final bool isCompleted;
   final int? qualificationId; // null = not assigned to a qualification
-  final bool isPublished; // only sent to admins; learners always see true
 
   const Lesson({
     required this.id,
@@ -20,7 +19,6 @@ class Lesson {
     required this.isUnlocked,
     required this.isCompleted,
     this.qualificationId,
-    this.isPublished = true,
   });
 
   bool get isVideo => mediaType == 'video';
@@ -37,7 +35,6 @@ class Lesson {
       isUnlocked: json['is_unlocked'] as bool? ?? false,
       isCompleted: json['is_completed'] as bool? ?? false,
       qualificationId: json['qualification_id'] as int?,
-      isPublished: json['is_published'] as bool? ?? true,
     );
   }
 
@@ -45,7 +42,6 @@ class Lesson {
     String? mediaUrl,
     bool? isUnlocked,
     bool? isCompleted,
-    bool? isPublished,
   }) {
     return Lesson(
       id: id,
@@ -57,7 +53,6 @@ class Lesson {
       isUnlocked: isUnlocked ?? this.isUnlocked,
       isCompleted: isCompleted ?? this.isCompleted,
       qualificationId: qualificationId,
-      isPublished: isPublished ?? this.isPublished,
     );
   }
 }

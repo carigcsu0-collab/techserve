@@ -22,8 +22,6 @@ class DashboardController extends Controller
                 'users' => User::count(),
                 'admins' => User::where('role', 'admin')->count(),
                 'lessons' => Lesson::count(),
-                'published_lessons' => Lesson::published()->count(),
-                'draft_lessons' => Lesson::where('is_published', false)->count(),
                 'quiz_submissions' => $totalSubmissions,
                 'pass_rate' => $totalSubmissions > 0 ? (int) round($passed * 100 / $totalSubmissions) : 0,
                 'average_score' => $totalSubmissions > 0 ? round((float) (clone $submissions)->avg('score'), 1) : 0,

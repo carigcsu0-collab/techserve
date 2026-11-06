@@ -30,13 +30,12 @@ class QualificationApiTest extends TestCase
         return $user;
     }
 
-    private function qualification(int $order, bool $published = true): Qualification
+    private function qualification(int $order): Qualification
     {
         return Qualification::create([
             'title' => "Qualification {$order}",
             'description' => 'Course',
             'order_index' => $order,
-            'is_published' => $published,
         ]);
     }
 
@@ -49,7 +48,6 @@ class QualificationApiTest extends TestCase
             'media_type' => 'image',
             'media_url' => "https://example.com/{$order}.png",
             'order_index' => $order,
-            'is_published' => true,
         ]);
     }
 
@@ -62,24 +60,47 @@ class QualificationApiTest extends TestCase
         ]);
     }
 
-    public function test_learners_only_see_published_qualifications(): void
+    public function test_learners_see_all_qualifications(): void
     {
         Sanctum::actingAs($this->user());
         $this->qualification(1);
-        $this->qualification(2, false);
+        $this->qualification(2);
 
         $response = $this->getJson('/api/qualifications')->assertOk();
 
-        $this->assertCount(1, $response->json('qualifications'));
+        $this->assertCount(2, $response->json('qualifications'));
         $this->assertArrayNotHasKey('is_published', $response->json('qualifications.0'));
     }
 
-    public function test_draft_qualification_is_hidden_from_learners(): void
+    public function test_admin_can_create_update_and_delete_empty_qualification(): void
     {
-        Sanctum::actingAs($this->user());
-        $draft = $this->qualification(1, false);
+        Sanctum::actingAs($this->user('admin'));
 
-        $this->getJson("/api/qualifications/{$draft->id}")->assertNotFound();
+        $created = $this->postJson('/api/admin/qualifications', [
+            'title' => 'Welding NC II',
+            'description' => 'Course',
+            'order_index' => 1,
+        ])->assertCreated()->json('qualification');
+
+        $this->putJson("/api/admin/qualifications/{$created['id']}", ['title' => 'Welding NC III'])
+            ->assertOk()
+            ->assertJsonPath('qualification.title', 'Welding NC III');
+
+        $this->deleteJson("/api/admin/qualifications/{$created['id']}")->assertOk();
+    }
+
+    public function test_qualification_can_be_created_without_order_index(): void
+    {
+        Sanctum::actingAs($this->user('admin'));
+
+        Qualification::create(['title' => 'First', 'description' => 'A', 'order_index' => 4]);
+
+        $created = $this->postJson('/api/admin/qualifications', [
+            'title' => 'Second',
+            'description' => 'B',
+        ])->assertCreated()->json('qualification');
+
+        $this->assertSame(5, $created['order_index']);
     }
 
     public function test_progression_is_scoped_to_each_qualification(): void
@@ -132,38 +153,6 @@ class QualificationApiTest extends TestCase
         $this->assertSame(2, $item['lesson_count']);
         $this->assertSame(1, $item['completed_count']);
         $this->assertFalse($item['is_completed']);
-    }
-
-    public function test_admin_can_create_publish_and_delete_empty_qualification(): void
-    {
-        Sanctum::actingAs($this->user('admin'));
-
-        $created = $this->postJson('/api/admin/qualifications', [
-            'title' => 'Welding NC II',
-            'description' => 'Course',
-            'order_index' => 1,
-        ])->assertCreated()->json('qualification');
-
-        $this->putJson("/api/admin/qualifications/{$created['id']}", ['is_published' => false])
-            ->assertOk()
-            ->assertJsonPath('qualification.is_published', false);
-
-        $this->deleteJson("/api/admin/qualifications/{$created['id']}")->assertOk();
-    }
-
-    public function test_qualification_can_be_created_without_order_index(): void
-    {
-        Sanctum::actingAs($this->user('admin'));
-
-        Qualification::create(['title' => 'First', 'description' => 'A', 'order_index' => 4]);
-
-        $created = $this->postJson('/api/admin/qualifications', [
-            'title' => 'Second',
-            'description' => 'B',
-            'is_published' => true,
-        ])->assertCreated()->json('qualification');
-
-        $this->assertSame(5, $created['order_index']);
     }
 
     public function test_qualification_with_lessons_cannot_be_deleted(): void

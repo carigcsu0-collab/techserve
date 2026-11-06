@@ -63,7 +63,7 @@ final qualificationDetailProvider = FutureProvider.family<
   return ref.read(apiServiceProvider).fetchQualification(id);
 });
 
-/// Admin view: includes unpublished qualifications.
+/// Admin view: includes all qualifications.
 final adminQualificationsProvider = FutureProvider<List<Qualification>>((ref) {
   return ref.read(apiServiceProvider).fetchAdminQualifications();
 });
