@@ -52,6 +52,8 @@ class User extends Authenticatable
         'email_otp_expires_at',
         'email_otp_sent_at',
         'email_otp_attempts',
+        'password_setup_hash',
+        'password_setup_expires_at',
     ];
 
     /**
@@ -65,6 +67,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'email_otp_expires_at' => 'datetime',
             'email_otp_sent_at' => 'datetime',
+            'password_setup_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

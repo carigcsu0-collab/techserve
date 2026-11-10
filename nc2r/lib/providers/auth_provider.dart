@@ -51,44 +51,45 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
     }
   }
 
-  /// Returns the email to verify when the account was created but not yet confirmed.
-  Future<String?> register(
-    String name,
-    String email,
-    String password,
-    String passwordConfirmation,
-  ) async {
+  /// Returns the email to verify once the code has been sent, otherwise null.
+  Future<String?> register(String name, String email) async {
     state = const AsyncValue.loading();
     try {
-      final api = ref.read(apiServiceProvider);
-      final result = await api.register(
-        name,
-        email,
-        password,
-        passwordConfirmation,
-      );
-      if (result == null) {
-        state = const AsyncValue.data(null);
-        return email;
-      }
-      api.setToken(result.token);
-      await ref.read(tokenStorageProvider).write(result.token);
-      state = AsyncValue.data(result.user);
-      return null;
+      await ref.read(apiServiceProvider).register(name, email);
+      state = const AsyncValue.data(null);
+      return email;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return null;
     }
   }
 
-  /// Confirms the emailed code and signs the user in. Errors are rethrown
+  /// Confirms the emailed code. Returns a setup token when a password must be
+  /// chosen next, or null if the user was signed in. Errors are rethrown
   /// so the OTP screen can show them without replacing the pending step.
-  Future<void> verifyEmail(String email, String code) async {
-    final api = ref.read(apiServiceProvider);
-    final result = await api.verifyEmail(email, code);
-    api.setToken(result.token);
-    await ref.read(tokenStorageProvider).write(result.token);
-    state = AsyncValue.data(result.user);
+  Future<String?> verifyEmail(String email, String code) async {
+    final result = await ref.read(apiServiceProvider).verifyEmail(email, code);
+    if (result.setupToken != null) return result.setupToken;
+    await _signIn(result.user!, result.token!);
+    return null;
+  }
+
+  Future<void> setPassword(
+    String email,
+    String setupToken,
+    String password,
+    String passwordConfirmation,
+  ) async {
+    final result = await ref
+        .read(apiServiceProvider)
+        .setPassword(email, setupToken, password, passwordConfirmation);
+    await _signIn(result.user, result.token);
+  }
+
+  Future<void> _signIn(AppUser user, String token) async {
+    ref.read(apiServiceProvider).setToken(token);
+    await ref.read(tokenStorageProvider).write(token);
+    state = AsyncValue.data(user);
   }
 
   Future<void> resendVerification(String email) =>

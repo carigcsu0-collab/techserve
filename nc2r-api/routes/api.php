@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:10,1');
+Route::post('/set-password', [AuthController::class, 'setPassword'])->middleware('throttle:10,1');
 Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:5,1');
 Route::post('/auth/google', [SocialAuthController::class, 'google'])->middleware('throttle:20,1');
 Route::post('/auth/facebook', [SocialAuthController::class, 'facebook'])->middleware('throttle:20,1');

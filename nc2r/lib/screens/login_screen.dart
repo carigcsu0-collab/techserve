@@ -24,9 +24,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _otpController = TextEditingController();
   bool _isLogin = true;
 
+  /// Hidden until email sign-up is proven; flip to bring Google/Facebook back.
+  static const _showSocialLogin = false;
+
   /// Set while the user must enter the emailed code before signing in.
   String? _pendingEmail;
   bool _verifying = false;
+
+  /// Set once the code is confirmed and the user must choose a password.
+  String? _setupToken;
+  final _newPasswordFormKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -52,8 +59,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       pending = await auth.register(
         _nameController.text.trim(),
         _emailController.text.trim(),
-        _passwordController.text,
-        _confirmController.text,
       );
     }
     if (pending != null && mounted) {
@@ -78,7 +83,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     setState(() => _verifying = true);
     try {
-      await ref.read(authProvider.notifier).verifyEmail(_pendingEmail!, code);
+      final setupToken = await ref
+          .read(authProvider.notifier)
+          .verifyEmail(_pendingEmail!, code);
+      if (setupToken != null && mounted) {
+        setState(() {
+          _setupToken = setupToken;
+          _passwordController.clear();
+          _confirmController.clear();
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) _showMessage(e.message);
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+  Future<void> _savePassword() async {
+    if (!(_newPasswordFormKey.currentState?.validate() ?? false)) return;
+    setState(() => _verifying = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .setPassword(
+            _pendingEmail!,
+            _setupToken!,
+            _passwordController.text,
+            _confirmController.text,
+          );
     } on ApiException catch (e) {
       if (mounted) _showMessage(e.message);
     } finally {
@@ -98,8 +131,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _backToForm() {
     setState(() {
       _pendingEmail = null;
+      _setupToken = null;
       _otpController.clear();
     });
+  }
+
+  Widget _buildPasswordStep() {
+    final theme = Theme.of(context);
+    return Form(
+      key: _newPasswordFormKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Email verified',
+            style: theme.textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a password to activate your account.',
+            style: theme.textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Password',
+              prefixIcon: Icon(Icons.lock_outline),
+            ),
+            validator: (v) =>
+                (v == null || v.length < 8) ? 'At least 8 characters' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _confirmController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Confirm password',
+              prefixIcon: Icon(Icons.lock_outline),
+            ),
+            validator: (v) =>
+                v != _passwordController.text ? 'Passwords do not match' : null,
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _verifying ? null : _savePassword,
+            child: _verifying
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Activate Account'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildOtpStep() {
@@ -209,7 +303,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: FadeSlideIn(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                child: _pendingEmail != null
+                child: _setupToken != null
+                    ? _buildPasswordStep()
+                    : _pendingEmail != null
                     ? _buildOtpStep()
                     : Form(
                         key: _formKey,
@@ -259,44 +355,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ? 'Enter a valid email'
                                   : null,
                             ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock_outline),
+                            if (_isLogin) ...[
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Password',
+                                  prefixIcon: Icon(Icons.lock_outline),
+                                ),
+                                validator: (v) => (v == null || v.length < 8)
+                                    ? 'At least 8 characters'
+                                    : null,
                               ),
-                              validator: (v) => (v == null || v.length < 8)
-                                  ? 'At least 8 characters'
-                                  : null,
-                            ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOut,
-                              alignment: Alignment.topCenter,
-                              child: !_isLogin
-                                  ? Column(
-                                      children: [
-                                        const SizedBox(height: 14),
-                                        TextFormField(
-                                          controller: _confirmController,
-                                          obscureText: true,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Confirm password',
-                                            prefixIcon: Icon(
-                                              Icons.lock_outline,
-                                            ),
-                                          ),
-                                          validator: (v) =>
-                                              v != _passwordController.text
-                                              ? 'Passwords do not match'
-                                              : null,
-                                        ),
-                                      ],
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
+                            ],
                             const SizedBox(height: 24),
                             PressableScale(
                               child: FilledButton(
@@ -316,7 +388,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       : Text(
                                           _isLogin
                                               ? 'Sign In'
-                                              : 'Create Account',
+                                              : 'Send Verification Code',
                                           key: const ValueKey('label'),
                                         ),
                                 ),
@@ -331,7 +403,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     : 'Already have an account? Sign in',
                               ),
                             ),
-                            if (SocialAuthService.anyAvailable) ...[
+                            if (_showSocialLogin &&
+                                SocialAuthService.anyAvailable) ...[
                               const SizedBox(height: 8),
                               Row(
                                 children: const [

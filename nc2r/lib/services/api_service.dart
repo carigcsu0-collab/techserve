@@ -73,28 +73,37 @@ class ApiService {
     return _authPayload(data);
   }
 
-  /// Returns null when the account must confirm its email code first.
-  Future<({AppUser user, String token})?> register(
-    String name,
-    String email,
-    String password,
-    String passwordConfirmation,
-  ) async {
-    final data = await _post('/register', {
-      'name': name,
-      'email': email,
-      'password': password,
-      'password_confirmation': passwordConfirmation,
-    });
-    if (data['verification_required'] == true) return null;
-    return _authPayload(data);
+  /// Step 1: sends a verification code to the email. No password yet.
+  Future<void> register(String name, String email) async {
+    await _post('/register', {'name': name, 'email': email});
   }
 
-  Future<({AppUser user, String token})> verifyEmail(
+  /// Returns a setup token when the user must still choose a password,
+  /// otherwise the signed-in session.
+  Future<({AppUser? user, String? token, String? setupToken})> verifyEmail(
     String email,
     String code,
   ) async {
     final data = await _post('/verify-email', {'email': email, 'code': code});
+    if (data['password_required'] == true) {
+      return (user: null, token: null, setupToken: data['setup_token'] as String);
+    }
+    final auth = _authPayload(data);
+    return (user: auth.user, token: auth.token, setupToken: null);
+  }
+
+  Future<({AppUser user, String token})> setPassword(
+    String email,
+    String setupToken,
+    String password,
+    String passwordConfirmation,
+  ) async {
+    final data = await _post('/set-password', {
+      'email': email,
+      'setup_token': setupToken,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
     return _authPayload(data);
   }
 
