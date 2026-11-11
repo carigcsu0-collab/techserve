@@ -67,6 +67,7 @@ class UpdateService {
   }
 
   static bool _prompting = false;
+  static DateTime _lastCheck = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Shows an update prompt when a newer release exists. With [manual], also
   /// reports when the app is already up to date.
@@ -74,6 +75,7 @@ class UpdateService {
       {bool manual = false}) async {
     if (_prompting) return;
     _prompting = true;
+    _lastCheck = DateTime.now();
     try {
       final update = await findUpdate();
       if (!context.mounted) return;
@@ -188,4 +190,29 @@ class UpdateService {
     }
     return 0;
   }
+}
+
+/// Re-checks for a new release as the user moves between screens. Throttled
+/// to once every 2 minutes to stay under GitHub's unauthenticated rate limit.
+class UpdateNavigatorObserver extends NavigatorObserver {
+  void _maybeCheck() {
+    if (DateTime.now().difference(UpdateService._lastCheck) <
+        const Duration(minutes: 2)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = navigator?.context;
+      if (context != null && context.mounted) {
+        UpdateService.checkAndPrompt(context);
+      }
+    });
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _maybeCheck();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _maybeCheck();
 }

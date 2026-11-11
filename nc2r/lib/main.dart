@@ -13,6 +13,8 @@ void main() {
   runApp(const ProviderScope(child: NC2RApp()));
 }
 
+final _updateObserver = UpdateNavigatorObserver();
+
 class NC2RApp extends ConsumerWidget {
   const NC2RApp({super.key});
 
@@ -27,6 +29,7 @@ class NC2RApp extends ConsumerWidget {
       themeMode: ref.watch(themeModeProvider),
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
+      navigatorObservers: [_updateObserver],
       home: const AuthGate(),
     );
   }
