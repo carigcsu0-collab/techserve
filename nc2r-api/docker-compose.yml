@@ -13,7 +13,7 @@
 #   docker compose run --rm migrate
 #
 # Gmail for email OTP (free): set these in the stack environment, then redeploy:
-#   MAIL_MAILER=smtp  MAIL_HOST=smtp.gmail.com  MAIL_PORT=587  MAIL_SCHEME=tls
+#   MAIL_MAILER=smtp  MAIL_HOST=smtp.gmail.com  MAIL_PORT=587  MAIL_SCHEME=smtp
 #   MAIL_USERNAME=<your gmail address>  MAIL_PASSWORD=<16-character Gmail App Password>
 #   MAIL_FROM_ADDRESS=<your gmail address>
 # The App Password needs 2-Step Verification on the Google account (myaccount.google.com/apppasswords).

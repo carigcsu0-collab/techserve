@@ -42,6 +42,8 @@ class EmailOtpService
         try {
             Mail::to($user->email)->send(new EmailOtpMail($code, self::TTL_MINUTES));
         } catch (Throwable $e) {
+            // Don't make the user wait out the cooldown for a code that was never delivered.
+            $user->forceFill(['email_otp_sent_at' => null])->save();
             Log::error('Failed to send verification email', ['user_id' => $user->id, 'error' => $e->getMessage()]);
             throw $e;
         }
