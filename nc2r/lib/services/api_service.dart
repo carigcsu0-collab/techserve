@@ -1,7 +1,6 @@
-import 'dart:io' show File, Platform;
+import 'dart:io' show File;
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/admin_models.dart';
 import '../models/app_user.dart';
@@ -34,14 +33,11 @@ class ApiException implements Exception {
 class ApiService {
   /// Android emulators reach the host machine's localhost via 10.0.2.2;
   /// desktop/web targets use localhost directly.
-  /// Override at launch: flutter run --dart-define=API_URL=http://192.168.x.x:8000/api
+  /// Override at launch: flutter run --dart-define=API_URL=https://host/path/api
   static String get baseUrl {
     const defined = String.fromEnvironment('API_URL');
     if (defined.isNotEmpty) return defined;
-    if (kIsWeb) return 'http://localhost:8000/api';
-    return Platform.isAndroid
-        ? 'http://10.0.2.2:8000/api'
-        : 'http://localhost:8000/api';
+    return 'https://dtc-main-pc.tail9ac631.ts.net/app2/api';
   }
 
   final Dio _dio;
