@@ -82,7 +82,7 @@ class UserController extends Controller
         }
 
         if ($user->role !== $validated['role']) {
-            $user->update(['role' => $validated['role']]);
+            $user->forceFill(['role' => $validated['role']])->save();
 
             AdminAuditLog::record(
                 $admin,

@@ -105,6 +105,30 @@ class AdminApiTest extends TestCase
         $this->assertSame('admin', $admin->fresh()->role);
     }
 
+    public function test_admin_can_promote_and_demote_another_user(): void
+    {
+        Sanctum::actingAs($this->admin());
+        $other = User::factory()->create(['email' => 'other@x.com']);
+
+        $this->putJson("/api/admin/users/{$other->id}/role", ['role' => 'admin'])
+            ->assertOk()->assertJsonPath('user.role', 'admin');
+        $this->assertSame('admin', $other->fresh()->role);
+
+        $this->putJson("/api/admin/users/{$other->id}/role", ['role' => 'user'])
+            ->assertOk()->assertJsonPath('user.role', 'user');
+        $this->assertSame('user', $other->fresh()->role);
+    }
+
+    public function test_non_admin_cannot_change_roles(): void
+    {
+        $learner = User::factory()->create();
+        $other = User::factory()->create();
+        Sanctum::actingAs($learner);
+
+        $this->putJson("/api/admin/users/{$other->id}/role", ['role' => 'admin'])->assertForbidden();
+        $this->assertNotSame('admin', $other->fresh()->role);
+    }
+
     public function test_learners_see_all_lessons(): void
     {
         $learner = User::create([
