@@ -66,11 +66,32 @@ class UpdateService {
     return null;
   }
 
-  /// Shows an update prompt when a newer release exists.
-  static Future<void> checkAndPrompt(BuildContext context) async {
-    final update = await findUpdate();
-    if (update == null || !context.mounted) return;
+  static bool _prompting = false;
 
+  /// Shows an update prompt when a newer release exists. With [manual], also
+  /// reports when the app is already up to date.
+  static Future<void> checkAndPrompt(BuildContext context,
+      {bool manual = false}) async {
+    if (_prompting) return;
+    _prompting = true;
+    try {
+      final update = await findUpdate();
+      if (!context.mounted) return;
+      if (update == null) {
+        if (manual) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You have the latest version.')),
+          );
+        }
+        return;
+      }
+      await _prompt(context, update);
+    } finally {
+      _prompting = false;
+    }
+  }
+
+  static Future<void> _prompt(BuildContext context, AppUpdate update) async {
     final wantsUpdate = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

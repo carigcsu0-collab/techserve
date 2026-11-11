@@ -100,13 +100,29 @@ class AuthGate extends ConsumerStatefulWidget {
   ConsumerState<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends ConsumerState<AuthGate> {
+class _AuthGateState extends ConsumerState<AuthGate>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) UpdateService.checkAndPrompt(context);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Apps are often resumed rather than relaunched, so re-check then too.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      UpdateService.checkAndPrompt(context);
+    }
   }
 
   @override

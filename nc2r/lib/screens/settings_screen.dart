@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/theme_provider.dart';
+import '../services/update_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -43,6 +44,15 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.system_update),
+              title: const Text('Check for updates'),
+              onTap: () =>
+                  UpdateService.checkAndPrompt(context, manual: true),
             ),
           ),
         ],
