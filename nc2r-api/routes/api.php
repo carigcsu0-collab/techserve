@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\LessonController as AdminLessonController;
+use App\Http\Controllers\Api\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\Admin\QualificationController as AdminQualificationController;
 use App\Http\Controllers\Api\Admin\QuestionController as AdminQuestionController;
 use App\Http\Controllers\Api\Admin\QuizController as AdminQuizController;
@@ -58,6 +59,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/qualifications/{qualification}', [AdminQualificationController::class, 'update']);
     Route::delete('/qualifications/{qualification}', [AdminQualificationController::class, 'destroy']);
 
+    Route::post('/uploads', [AdminUploadController::class, 'start']);
+    Route::post('/uploads/{id}/chunk', [AdminUploadController::class, 'chunk']);
     Route::post('/lessons', [AdminLessonController::class, 'store']);
     Route::put('/lessons/reorder', [AdminLessonController::class, 'reorder']);
     Route::put('/lessons/{lesson}', [AdminLessonController::class, 'update']);

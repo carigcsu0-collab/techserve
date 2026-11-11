@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,9 +94,13 @@ class _AdminLessonFormScreenState extends ConsumerState<AdminLessonFormScreen> {
       : const ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
   Future<void> _pickFile() async {
+    // Phones can't filter by exotic extensions reliably, so use the system video/image picker there.
+    final mobile = Platform.isAndroid || Platform.isIOS;
     final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: _allowedExtensions,
+      type: mobile
+          ? (_mediaType == 'video' ? FileType.video : FileType.image)
+          : FileType.custom,
+      allowedExtensions: mobile ? null : _allowedExtensions,
     );
     if (file?.path != null) {
       setState(() {

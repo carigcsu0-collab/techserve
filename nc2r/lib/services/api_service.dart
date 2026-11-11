@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -239,6 +239,9 @@ class ApiService {
     String? mediaFilePath,
     void Function(int sent, int total)? onUploadProgress,
   }) async {
+    final uploadId = mediaFilePath == null
+        ? null
+        : await _uploadInChunks(mediaFilePath, onUploadProgress);
     final data = await _sendForm('POST', '/admin/lessons', {
       'title': title,
       'description': description,
@@ -246,9 +249,8 @@ class ApiService {
       'order_index': '$orderIndex',
       if (qualificationId != null) 'qualification_id': '$qualificationId',
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
-      if (mediaFilePath != null)
-        'media_file': await MultipartFile.fromFile(mediaFilePath),
-    }, onUploadProgress: onUploadProgress);
+      'upload_id': ?uploadId,
+    });
     return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
   }
 
@@ -265,6 +267,9 @@ class ApiService {
     String? mediaFilePath,
     void Function(int sent, int total)? onUploadProgress,
   }) async {
+    final uploadId = mediaFilePath == null
+        ? null
+        : await _uploadInChunks(mediaFilePath, onUploadProgress);
     // Multipart PUT isn't parsed by PHP — Laravel method-spoofs via _method.
     final data = await _sendForm('POST', '/admin/lessons/$id', {
       '_method': 'PUT',
@@ -277,10 +282,71 @@ class ApiService {
       else if (qualificationId != null)
         'qualification_id': '$qualificationId',
       if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
-      if (mediaFilePath != null)
-        'media_file': await MultipartFile.fromFile(mediaFilePath),
-    }, onUploadProgress: onUploadProgress);
+      'upload_id': ?uploadId,
+    });
     return Lesson.fromJson(data['lesson'] as Map<String, dynamic>);
+  }
+
+  static const _chunkSize = 4 * 1024 * 1024;
+  static const _chunkRetries = 6;
+
+  /// Sends the file in small pieces so a dropped connection only retries one piece
+  /// instead of failing the whole upload. Returns the server's upload id.
+  Future<String> _uploadInChunks(
+    String filePath,
+    void Function(int sent, int total)? onProgress,
+  ) async {
+    final file = File(filePath);
+    final total = await file.length();
+    final name = filePath.split(RegExp(r'[\\/]')).last;
+
+    final started = await _post('/admin/uploads', {
+      'name': name,
+      'size': '$total',
+    });
+    final uploadId = started['upload_id'] as String;
+
+    final reader = await file.open();
+    try {
+      var offset = 0;
+      onProgress?.call(0, total);
+      while (offset < total) {
+        await reader.setPosition(offset);
+        final bytes = await reader.read(
+          total - offset < _chunkSize ? total - offset : _chunkSize,
+        );
+        await _sendChunk(uploadId, offset, bytes);
+        offset += bytes.length;
+        onProgress?.call(offset, total);
+      }
+    } finally {
+      await reader.close();
+    }
+    return uploadId;
+  }
+
+  Future<void> _sendChunk(String uploadId, int offset, List<int> bytes) async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        await _dio.post(
+          '/admin/uploads/$uploadId/chunk',
+          data: FormData.fromMap({
+            'offset': '$offset',
+            'chunk': MultipartFile.fromBytes(bytes, filename: 'chunk'),
+          }),
+          options: Options(receiveTimeout: const Duration(minutes: 2)),
+        );
+        return;
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        // Client errors (validation, auth, 404) won't fix themselves by retrying.
+        final retryable = status == null || status >= 500 || status == 429;
+        if (!retryable || attempt >= _chunkRetries) {
+          throw ApiException(_message(e), statusCode: status);
+        }
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
+    }
   }
 
   Future<void> deleteLesson(int id) async {

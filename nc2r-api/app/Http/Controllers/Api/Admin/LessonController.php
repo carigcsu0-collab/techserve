@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\TranscodeLessonVideo;
 use App\Models\AdminAuditLog;
 use App\Models\Lesson;
+use App\Services\ChunkedUpload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -33,8 +34,9 @@ class LessonController extends Controller
             'media_type' => ['required', Rule::in(['video', 'image'])],
             'order_index' => ['required', 'integer', 'min:1'],
             'qualification_id' => ['nullable', 'integer', 'exists:qualifications,id'],
-            'media_url' => ['required_without:media_file', 'nullable', 'string', 'max:2048'],
-            'media_file' => array_merge(['required_without:media_url'], $this->mediaFileRules()),
+            'media_url' => ['required_without_all:media_file,upload_id', 'nullable', 'string', 'max:2048'],
+            'upload_id' => ['nullable', 'string', 'regex:/^[a-f0-9]{32}$/'],
+            'media_file' => array_merge(['required_without_all:media_url,upload_id'], $this->mediaFileRules()),
         ];
     }
 
@@ -70,10 +72,10 @@ class LessonController extends Controller
             'order_index' => ['required', 'integer', 'min:1', 'unique:lessons,order_index'],
         ]), (string) $request->input('media_type'));
 
-        if ($request->hasFile('media_file')) {
-            $validated['media_url'] = $this->storeMedia($request);
+        if ($this->hasNewMedia($request)) {
+            $validated['media_url'] = $this->storeMedia($request, (string) $validated['media_type']);
         }
-        unset($validated['media_file']);
+        unset($validated['media_file'], $validated['upload_id']);
 
         $lesson = Lesson::create($validated);
         $this->queueVideoTranscode($lesson, $request);
@@ -90,6 +92,7 @@ class LessonController extends Controller
         })->all();
 
         $rules['media_url'] = ['nullable', 'string', 'max:2048'];
+        $rules['upload_id'] = ['nullable', 'string', 'regex:/^[a-f0-9]{32}$/'];
         $rules['qualification_id'] = ['nullable', 'integer', 'exists:qualifications,id'];
         $rules['media_file'] = array_merge(['nullable'], $this->mediaFileRules());
         $rules['order_index'] = [
@@ -103,11 +106,12 @@ class LessonController extends Controller
             (string) $request->input('media_type', $lesson->media_type)
         );
 
-        if ($request->hasFile('media_file')) {
+        if ($this->hasNewMedia($request)) {
+            $newUrl = $this->storeMedia($request, (string) $request->input('media_type', $lesson->media_type));
             $this->deleteMedia($lesson);
-            $validated['media_url'] = $this->storeMedia($request);
+            $validated['media_url'] = $newUrl;
         }
-        unset($validated['media_file']);
+        unset($validated['media_file'], $validated['upload_id']);
 
         $lesson->update($validated);
         $this->queueVideoTranscode($lesson, $request);
@@ -159,10 +163,15 @@ class LessonController extends Controller
     }
 
 
+    private function hasNewMedia(Request $request): bool
+    {
+        return $request->hasFile('media_file') || $request->filled('upload_id');
+    }
+
     // The upload is saved as-is right away; the queue worker converts it to MP4 afterwards.
     private function queueVideoTranscode(Lesson $lesson, Request $request): void
     {
-        if ($lesson->media_type === 'video' && $request->hasFile('media_file')) {
+        if ($lesson->media_type === 'video' && $this->hasNewMedia($request)) {
             TranscodeLessonVideo::dispatch($lesson->id);
         }
     }
@@ -178,9 +187,11 @@ class LessonController extends Controller
         return response()->json(['message' => 'Lesson deleted']);
     }
 
-    private function storeMedia(Request $request): string
+    private function storeMedia(Request $request, string $mediaType): string
     {
-        $path = $request->file('media_file')->store('lessons', 'public');
+        $path = $request->filled('upload_id')
+            ? app(ChunkedUpload::class)->finalize($request->user(), (string) $request->input('upload_id'), $mediaType)
+            : $request->file('media_file')->store('lessons', 'public');
 
         return asset("storage/{$path}");
     }
