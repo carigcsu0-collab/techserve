@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\Admin\ExamController as AdminExamController;
 use App\Http\Controllers\Api\Admin\LessonController as AdminLessonController;
 use App\Http\Controllers\Api\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\Admin\QualificationController as AdminQualificationController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Api\Admin\QuestionController as AdminQuestionController
 use App\Http\Controllers\Api\Admin\QuizController as AdminQuizController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ExamController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\QualificationController;
 use App\Http\Controllers\Api\QuizController;
@@ -40,6 +42,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/qualifications/{qualification}', [QualificationController::class, 'show']);
     Route::get('/lessons/{lesson}/quiz', [QuizController::class, 'show']);
     Route::post('/quizzes/{quiz}/submit', [QuizController::class, 'submit']);
+    Route::post('/lessons/{lesson}/complete', [ExamController::class, 'completeLesson']);
+    Route::get('/qualifications/{qualification}/exams/{type}', [ExamController::class, 'show']);
+    Route::post('/exams/{exam}/submit', [ExamController::class, 'submit']);
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
@@ -73,6 +78,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::delete('/quizzes/{quiz}/submissions/{submission}', [AdminQuizController::class, 'destroySubmission']);
 
     Route::post('/quizzes/{quiz}/questions', [AdminQuestionController::class, 'store']);
+    Route::get('/qualifications/{qualification}/exams', [AdminExamController::class, 'index']);
+    Route::put('/exams/{exam}', [AdminExamController::class, 'update']);
+    Route::post('/exams/{exam}/questions', [AdminExamController::class, 'storeQuestion']);
+    Route::post('/exams/{exam}/questions/bulk', [AdminExamController::class, 'bulkStore']);
+    Route::put('/exam-questions/{question}', [AdminExamController::class, 'updateQuestion']);
+    Route::delete('/exam-questions/{question}', [AdminExamController::class, 'destroyQuestion']);
     Route::put('/questions/{question}', [AdminQuestionController::class, 'update']);
     Route::delete('/questions/{question}', [AdminQuestionController::class, 'destroy']);
 });

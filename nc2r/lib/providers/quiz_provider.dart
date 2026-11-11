@@ -37,7 +37,7 @@ class QuizSubmitNotifier extends AsyncNotifier<QuizResult?> {
     );
     state = result;
 
-    final value = result.value;
+    final value = result.valueOrNull;
     if (value != null && value.passed) {
       ref.read(lessonProvider.notifier).applyQuizPass(lessonId);
       // Background refresh for the authoritative list; a transient failure

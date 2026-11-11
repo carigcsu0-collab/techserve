@@ -8,6 +8,7 @@ import '../widgets/app_page_route.dart';
 import '../widgets/lesson_tile.dart';
 import '../widgets/shimmer_lesson_list.dart';
 import 'lesson_detail_screen.dart';
+import 'exam_screen.dart';
 
 class QualificationDetailScreen extends ConsumerWidget {
   final int qualificationId;
@@ -50,15 +51,31 @@ class QualificationDetailScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               _Header(qualification: data.qualification),
+              if (data.exams.pre != null)
+                _ExamCard(
+                  title: 'Pre-Test',
+                  subtitle: data.exams.pre!.taken
+                      ? 'Done — score ${data.exams.pre!.bestScore ?? 0}%'
+                      : 'Required before you can start the lessons '
+                          '(${data.exams.pre!.items} items)',
+                  icon: Icons.fact_check_outlined,
+                  done: data.exams.pre!.taken,
+                  buttonLabel: data.exams.pre!.taken ? 'Retake' : 'Start',
+                  onPressed: () => _openExam(context, ref, 'pre'),
+                ),
               for (final lesson in data.lessons)
                 LessonTile(
                   lesson: lesson,
                   onTap: () async {
                     if (!lesson.isUnlocked) {
+                      final needsPre =
+                          data.exams.pre != null && !data.exams.pre!.taken;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Complete the previous lesson to unlock this one.',
+                            needsPre
+                                ? 'Take the Pre-Test first to unlock the lessons.'
+                                : 'Complete the previous lesson to unlock this one.',
                           ),
                         ),
                       );
@@ -81,10 +98,69 @@ class QualificationDetailScreen extends ConsumerWidget {
                     child: Text('Lessons for this qualification are coming soon.'),
                   ),
                 ),
+              if (data.exams.post != null)
+                _ExamCard(
+                  title: 'Post-Test',
+                  subtitle: !data.exams.post!.available
+                      ? 'Finish all lessons to unlock (${data.exams.post!.items} items)'
+                      : data.exams.post!.taken
+                          ? 'Best score ${data.exams.post!.bestScore ?? 0}%'
+                              '${data.exams.post!.passed ? ' — passed' : ''}'
+                          : '${data.exams.post!.items} items',
+                  icon: Icons.workspace_premium_outlined,
+                  done: data.exams.post!.passed,
+                  buttonLabel: data.exams.post!.taken ? 'Retake' : 'Start',
+                  onPressed: data.exams.post!.available
+                      ? () => _openExam(context, ref, 'post')
+                      : null,
+                ),
               const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _openExam(BuildContext context, WidgetRef ref, String type) async {
+    await Navigator.of(context).push(
+      SlidePageRoute(
+        builder: (_) =>
+            ExamScreen(qualificationId: qualificationId, type: type),
+      ),
+    );
+    ref.invalidate(qualificationDetailProvider(qualificationId));
+    ref.invalidate(qualificationsProvider);
+  }
+}
+
+class _ExamCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool done;
+  final String buttonLabel;
+  final VoidCallback? onPressed;
+
+  const _ExamCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.done,
+    required this.buttonLabel,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: ListTile(
+        leading: Icon(done ? Icons.check_circle : icon,
+            color: done ? Colors.green : null),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: FilledButton(onPressed: onPressed, child: Text(buttonLabel)),
       ),
     );
   }

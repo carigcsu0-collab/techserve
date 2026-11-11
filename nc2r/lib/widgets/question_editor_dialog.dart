@@ -21,8 +21,13 @@ class QuestionDraft {
 /// via Navigator pop, or null when cancelled.
 class QuestionEditorDialog extends StatefulWidget {
   final Question? question; // null = create
+  final bool multipleChoiceOnly;
 
-  const QuestionEditorDialog({super.key, this.question});
+  const QuestionEditorDialog({
+    super.key,
+    this.question,
+    this.multipleChoiceOnly = false,
+  });
 
   @override
   State<QuestionEditorDialog> createState() => _QuestionEditorDialogState();
@@ -144,24 +149,26 @@ class _QuestionEditorDialogState extends State<QuestionEditorDialog> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<QuestionType>(
-                  initialValue: _type,
-                  decoration: const InputDecoration(
-                      labelText: 'Type', border: OutlineInputBorder()),
-                  items: const [
-                    DropdownMenuItem(
-                        value: QuestionType.multipleChoice,
-                        child: Text('Multiple choice')),
-                    DropdownMenuItem(
-                        value: QuestionType.trueFalse,
-                        child: Text('True / False')),
-                    DropdownMenuItem(
-                        value: QuestionType.identification,
-                        child: Text('Identification')),
-                  ],
-                  onChanged: (v) => _switchType(v!),
-                ),
-                const SizedBox(height: 12),
+                if (!widget.multipleChoiceOnly) ...[
+                  DropdownButtonFormField<QuestionType>(
+                    initialValue: _type,
+                    decoration: const InputDecoration(
+                        labelText: 'Type', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(
+                          value: QuestionType.multipleChoice,
+                          child: Text('Multiple choice')),
+                      DropdownMenuItem(
+                          value: QuestionType.trueFalse,
+                          child: Text('True / False')),
+                      DropdownMenuItem(
+                          value: QuestionType.identification,
+                          child: Text('Identification')),
+                    ],
+                    onChanged: (v) => _switchType(v!),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 switch (_type) {
                   QuestionType.multipleChoice => _buildMcEditor(),
                   QuestionType.trueFalse => _buildTfEditor(),

@@ -90,7 +90,10 @@ class QuizController extends Controller
 
         $courseCompleted = $this->hasCompletedCourse($user);
 
-        if ($courseCompleted && $user->certificate_url === null) {
+        // When the qualification has a post-test, the certificate comes from passing it.
+        $hasPostTest = $quiz->lesson->qualification?->activeExam(\App\Models\Exam::TYPE_POST) !== null;
+
+        if ($courseCompleted && !$hasPostTest && $user->certificate_url === null) {
             $user->update(['certificate_url' => $this->generateCertificate($user)]);
         }
 

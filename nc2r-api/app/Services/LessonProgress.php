@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Lesson;
+use App\Models\Qualification;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -30,9 +31,19 @@ class LessonProgress
         // Each qualification keeps its own sequence, so track the last result per group.
         $previousCompleted = [];
 
-        return $lessons->map(function (Lesson $lesson) use ($completedIds, &$previousCompleted, $isAdmin) {
+        $pending = [];
+        $quizLessonIds = \App\Models\Quiz::whereHas('questions')->pluck('lesson_id')->flip();
+        if (!$isAdmin) {
+            foreach ($lessons->pluck('qualification_id')->filter()->unique() as $qualificationId) {
+                $qualification = Qualification::find($qualificationId);
+                $pending[$qualificationId] = $qualification?->preTestPendingFor($user) ?? false;
+            }
+        }
+
+        return $lessons->map(function (Lesson $lesson) use ($completedIds, &$previousCompleted, $isAdmin, $pending, $quizLessonIds) {
             $group = $lesson->qualification_id ?? 0;
-            $isUnlocked = $isAdmin || ($previousCompleted[$group] ?? true);
+            $isUnlocked = $isAdmin
+                || (!($pending[$lesson->qualification_id] ?? false) && ($previousCompleted[$group] ?? true));
             $isCompleted = $completedIds->has($lesson->id);
             $previousCompleted[$group] = $isCompleted;
 
@@ -46,6 +57,7 @@ class LessonProgress
                 'order_index' => $lesson->order_index,
                 'is_unlocked' => $isUnlocked,
                 'is_completed' => $isCompleted,
+                'has_quiz' => $quizLessonIds->has($lesson->id),
             ];
         });
     }

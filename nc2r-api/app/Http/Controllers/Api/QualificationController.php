@@ -55,6 +55,32 @@ class QualificationController extends Controller
         $user = $request->user();
 
         $lessons = $qualification->lessons()->get();
+        $presented = app(LessonProgress::class)->present($lessons, $user)->values();
+        $allDone = $presented->isNotEmpty() && $presented->every(fn ($l) => $l['is_completed']);
+
+        $examStatus = function (string $type) use ($qualification, $user) {
+            $exam = $qualification->activeExam($type);
+            if ($exam === null) {
+                return null;
+            }
+            $attempts = $exam->attempts()->where('user_id', $user->id);
+            $best = (clone $attempts)->max('score');
+
+            return [
+                'id' => $exam->id,
+                'items' => $exam->itemsFor($exam->questions()->count()),
+                'passing_score' => $exam->passing_score,
+                'taken' => $attempts->exists(),
+                'passed' => (clone $attempts)->where('passed', true)->exists(),
+                'best_score' => $best,
+            ];
+        };
+
+        $pre = $examStatus('pre');
+        $post = $examStatus('post');
+        if ($post !== null) {
+            $post['available'] = $user->isAdmin() || ($allDone && !($pre !== null && !$pre['taken']));
+        }
 
         return response()->json([
             'qualification' => [
@@ -62,7 +88,8 @@ class QualificationController extends Controller
                 'title' => $qualification->title,
                 'description' => $qualification->description,
             ],
-            'lessons' => app(LessonProgress::class)->present($lessons, $user)->values(),
+            'lessons' => $presented,
+            'exams' => ['pre' => $pre, 'post' => $post],
         ]);
     }
 }

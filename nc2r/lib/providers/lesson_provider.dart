@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/exam.dart';
 import '../models/lesson.dart';
 import '../models/qualification.dart';
 import 'api_provider.dart';
@@ -59,7 +60,8 @@ final qualificationsProvider = FutureProvider<List<Qualification>>((ref) {
 });
 
 final qualificationDetailProvider = FutureProvider.family<
-    ({Qualification qualification, List<Lesson> lessons}), int>((ref, id) {
+    ({Qualification qualification, List<Lesson> lessons, ExamStatuses exams}),
+    int>((ref, id) {
   return ref.read(apiServiceProvider).fetchQualification(id);
 });
 

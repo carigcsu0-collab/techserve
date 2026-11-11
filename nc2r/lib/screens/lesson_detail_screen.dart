@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/lesson.dart';
+import '../providers/api_provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/lesson_provider.dart';
+import '../services/error_messages.dart';
 import '../widgets/app_page_route.dart';
 import '../widgets/lesson_avatar.dart';
 import '../widgets/lesson_media.dart';
@@ -79,26 +82,56 @@ class LessonDetailScreen extends ConsumerWidget {
               ),
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: PressableScale(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.quiz),
-                    label: Text(
-                        liveLesson.isCompleted ? 'Retake Quiz' : 'Take Quiz'),
-                    onPressed: () => Navigator.of(context).push(
-                      SlidePageRoute(
-                        builder: (_) => QuizScreen(lesson: liveLesson),
-                      ),
+          if (liveLesson.hasQuiz || !liveLesson.isCompleted)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: PressableScale(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      icon: Icon(liveLesson.hasQuiz
+                          ? Icons.quiz
+                          : Icons.check_circle_outline),
+                      label: Text(liveLesson.hasQuiz
+                          ? (liveLesson.isCompleted ? 'Retake Quiz' : 'Take Quiz')
+                          : 'Mark as Completed'),
+                      onPressed: liveLesson.hasQuiz
+                          ? () => Navigator.of(context).push(
+                                SlidePageRoute(
+                                  builder: (_) =>
+                                      QuizScreen(lesson: liveLesson),
+                                ),
+                              )
+                          : () async {
+                        final navigator = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          final certificate = await ref
+                              .read(apiServiceProvider)
+                              .completeLesson(liveLesson.id);
+                          if (certificate != null) {
+                            ref
+                                .read(authProvider.notifier)
+                                .setCertificate(certificate);
+                          }
+                          ref
+                              .read(lessonProvider.notifier)
+                              .applyQuizPass(liveLesson.id);
+                          await ref.read(lessonProvider.notifier).refresh();
+                          ref.invalidate(qualificationsProvider);
+                          navigator.pop();
+                        } catch (e) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(friendlyError(e))),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

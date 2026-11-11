@@ -86,6 +86,10 @@ class Lesson extends Model
      */
     public function isUnlockedFor(User $user): bool
     {
+        if ($this->qualification?->preTestPendingFor($user)) {
+            return false;
+        }
+
         $previous = $this->previous();
 
         if ($previous === null) {

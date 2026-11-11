@@ -139,7 +139,7 @@ class _AdminQuizScreenState extends ConsumerState<AdminQuizScreen> {
   Widget build(BuildContext context) {
     final quizAsync = ref.watch(quizProvider(widget.lesson.id));
 
-    final quiz = quizAsync.value;
+    final quiz = quizAsync.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(

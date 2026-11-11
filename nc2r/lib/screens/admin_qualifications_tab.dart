@@ -5,6 +5,7 @@ import '../models/qualification.dart';
 import '../providers/api_provider.dart';
 import '../providers/lesson_provider.dart';
 import '../services/error_messages.dart';
+import 'admin_exams_screen.dart';
 
 /// Qualifications tab of the admin shell: create, edit, reorder, delete.
 class AdminQualificationsTab extends ConsumerStatefulWidget {
@@ -164,6 +165,16 @@ class _AdminQualificationsTabState
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.fact_check_outlined),
+                        tooltip: 'Pre-test & post-test',
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => AdminExamsScreen(
+                                qualificationId: q.id, title: q.title),
+                          ),
+                        ),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
                         tooltip: 'Delete',

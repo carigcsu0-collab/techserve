@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../models/admin_models.dart';
 import '../models/app_user.dart';
+import '../models/exam.dart';
 import '../models/lesson.dart';
 import '../models/qualification.dart';
 import '../models/question.dart';
@@ -199,7 +200,7 @@ class ApiService {
   }
 
   /// Returns the qualification plus its lessons, with lock state for the current user.
-  Future<({Qualification qualification, List<Lesson> lessons})>
+  Future<({Qualification qualification, List<Lesson> lessons, ExamStatuses exams})>
       fetchQualification(int id) async {
     final data = await _get('/qualifications/$id');
     return (
@@ -208,7 +209,83 @@ class ApiService {
       lessons: (data['lessons'] as List<dynamic>)
           .map((l) => Lesson.fromJson(l as Map<String, dynamic>))
           .toList(),
+      exams: ExamStatuses.fromJson(data['exams'] as Map<String, dynamic>?),
     );
+  }
+
+  // ---- Pre-test / post-test ----
+
+  Future<ExamPaper> fetchExam(int qualificationId, String type) async {
+    final data = await _get('/qualifications/$qualificationId/exams/$type');
+    return ExamPaper.fromJson(data['exam'] as Map<String, dynamic>);
+  }
+
+  Future<ExamResult> submitExam(int examId, Map<int, String> answers) async {
+    final data = await _post('/exams/$examId/submit', {
+      'answers': answers.map((key, value) => MapEntry(key.toString(), value)),
+    });
+    return ExamResult.fromJson(data);
+  }
+
+  /// Returns the certificate URL if finishing this lesson earned one.
+  Future<String?> completeLesson(int lessonId) async {
+    final data = await _post('/lessons/$lessonId/complete', {});
+    return data['certificate_url'] as String?;
+  }
+
+  // ---- Admin: pre-test / post-test ----
+
+  Future<({AdminExam pre, AdminExam post})> fetchAdminExams(
+      int qualificationId) async {
+    final data = await _get('/admin/qualifications/$qualificationId/exams');
+    final exams = data['exams'] as Map<String, dynamic>;
+    return (
+      pre: AdminExam.fromJson(exams['pre'] as Map<String, dynamic>),
+      post: AdminExam.fromJson(exams['post'] as Map<String, dynamic>),
+    );
+  }
+
+  Future<void> updateExam(int examId,
+      {required int passingScore, int? questionCount}) async {
+    await _put('/admin/exams/$examId', {
+      'passing_score': passingScore,
+      'question_count': questionCount,
+    });
+  }
+
+  Future<void> createExamQuestion(
+    int examId, {
+    required String questionText,
+    required List<String> options,
+    required String correctAnswer,
+  }) async {
+    await _post('/admin/exams/$examId/questions', {
+      'question_text': questionText,
+      'options': options,
+      'correct_answer': correctAnswer,
+    });
+  }
+
+  Future<void> bulkCreateExamQuestions(
+      int examId, List<Map<String, dynamic>> questions) async {
+    await _post('/admin/exams/$examId/questions/bulk', {'questions': questions});
+  }
+
+  Future<void> updateExamQuestion(
+    int id, {
+    required String questionText,
+    required List<String> options,
+    required String correctAnswer,
+  }) async {
+    await _put('/admin/exam-questions/$id', {
+      'question_text': questionText,
+      'options': options,
+      'correct_answer': correctAnswer,
+    });
+  }
+
+  Future<void> deleteExamQuestion(int id) async {
+    await _delete('/admin/exam-questions/$id');
   }
 
   // ---- Quizzes ----
