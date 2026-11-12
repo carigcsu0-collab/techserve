@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/admin_models.dart';
 import '../providers/api_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/refresh_provider.dart';
 import '../services/error_messages.dart';
 
 /// Users tab of the admin shell: search, then open a user to review progress
@@ -34,17 +35,19 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final users =
           await ref.read(apiServiceProvider).fetchUsers(query: _query);
       if (mounted) setState(() => _users = users);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted && !silent) setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -123,6 +126,7 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(refreshTickProvider, (_, __) => _load(silent: true));
     return Scaffold(
       appBar: AppBar(title: const Text('Users')),
       floatingActionButton: FloatingActionButton.extended(
@@ -380,7 +384,7 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
           await ref.read(apiServiceProvider).fetchUserDetail(widget.userId);
       if (mounted) setState(() => _detail = detail);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted && _detail == null) setState(() => _error = friendlyError(e));
     }
   }
 
@@ -416,6 +420,7 @@ class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(refreshTickProvider, (_, __) => _load());
     final theme = Theme.of(context);
     final me = ref.watch(authProvider).value;
     final detail = _detail;

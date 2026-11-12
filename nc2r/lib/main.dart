@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/refresh_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/admin_shell.dart';
 import 'screens/learner_shell.dart';
@@ -121,9 +122,14 @@ class _AuthGateState extends ConsumerState<AuthGate>
   }
 
   // Apps are often resumed rather than relaunched, so re-check then too.
+  // Data refresh pauses in the background and reloads right away on resume.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
+    final active = state == AppLifecycleState.resumed;
+    final notifier = ref.read(refreshTickProvider.notifier);
+    notifier.setActive(active);
+    if (active && mounted) {
+      notifier.pulse();
       UpdateService.checkAndPrompt(context);
     }
   }

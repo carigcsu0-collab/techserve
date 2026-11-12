@@ -8,6 +8,7 @@ import '../models/quiz_submission.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
 import 'lesson_provider.dart';
+import 'refresh_provider.dart';
 
 /// Fetches the quiz (questions, no correct answers) for a lesson.
 /// autoDispose so a re-entry always gets a fresh copy.
@@ -17,9 +18,10 @@ final quizProvider = FutureProvider.autoDispose.family<Quiz, int>(
 
 /// Admin-only: learner submissions for a quiz, with per-answer grading.
 final quizSubmissionsProvider =
-    FutureProvider.autoDispose.family<List<QuizSubmission>, int>(
-  (ref, quizId) => ref.read(apiServiceProvider).quizSubmissions(quizId),
-);
+    FutureProvider.autoDispose.family<List<QuizSubmission>, int>((ref, quizId) {
+  ref.watch(refreshTickProvider);
+  return ref.read(apiServiceProvider).quizSubmissions(quizId);
+});
 
 /// Handles quiz submission. On a pass it updates lesson progress
 /// (instant unlock) and stores the certificate on the user when the

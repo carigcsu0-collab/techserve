@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/exam.dart';
 import '../models/lesson.dart';
 import '../models/qualification.dart';
 import 'api_provider.dart';
+import 'refresh_provider.dart';
 
 class LessonNotifier extends AsyncNotifier<List<Lesson>> {
   @override
   Future<List<Lesson>> build() {
+    ref.listen(refreshTickProvider, (_, __) => unawaited(refresh()));
     return ref.read(apiServiceProvider).fetchLessons();
   }
 
@@ -56,16 +60,19 @@ final lessonProvider =
     AsyncNotifierProvider<LessonNotifier, List<Lesson>>(LessonNotifier.new);
 
 final qualificationsProvider = FutureProvider<List<Qualification>>((ref) {
+  ref.watch(refreshTickProvider);
   return ref.read(apiServiceProvider).fetchQualifications();
 });
 
-final qualificationDetailProvider = FutureProvider.family<
+final qualificationDetailProvider = FutureProvider.autoDispose.family<
     ({Qualification qualification, List<Lesson> lessons, ExamStatuses exams}),
     int>((ref, id) {
+  ref.watch(refreshTickProvider);
   return ref.read(apiServiceProvider).fetchQualification(id);
 });
 
 /// Admin view: includes all qualifications.
 final adminQualificationsProvider = FutureProvider<List<Qualification>>((ref) {
+  ref.watch(refreshTickProvider);
   return ref.read(apiServiceProvider).fetchAdminQualifications();
 });

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/admin_models.dart';
 import '../providers/api_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/refresh_provider.dart';
 import '../services/error_messages.dart';
 
 /// Dashboard tab of the admin shell: headline numbers and recent activity.
@@ -47,6 +48,7 @@ class _AdminDashboardTabState extends ConsumerState<AdminDashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(refreshTickProvider, (_, __) => _load());
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -187,12 +189,13 @@ class _AdminActivityScreenState extends ConsumerState<AdminActivityScreen> {
       final logs = await ref.read(apiServiceProvider).fetchAuditLogs();
       if (mounted) setState(() => _logs = logs);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyError(e));
+      if (mounted && _logs == null) setState(() => _error = friendlyError(e));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(refreshTickProvider, (_, __) => _load());
     final logs = _logs;
     return Scaffold(
       appBar: AppBar(title: const Text('Activity log')),
