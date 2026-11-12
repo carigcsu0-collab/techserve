@@ -8,9 +8,16 @@ use App\Models\ExamQuestion;
 use App\Models\Qualification;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ExamController extends Controller
 {
+    private const QUESTION_TYPES = [
+        ExamQuestion::TYPE_MULTIPLE_CHOICE,
+        ExamQuestion::TYPE_TRUE_FALSE,
+        ExamQuestion::TYPE_IDENTIFICATION,
+    ];
+
     /**
      * Pre-test and post-test of a qualification, with their full question
      * banks (including correct answers). Missing exams are created empty.
@@ -45,44 +52,43 @@ class ExamController extends Controller
 
     public function storeQuestion(Request $request, Exam $exam)
     {
-        $validated = $request->validate($this->rules($request));
+        $data = $this->prepare($request->validate($this->rules()), 'correct_answer');
 
-        $exam->questions()->create($validated);
+        $exam->questions()->create($data);
 
         return response()->json(['exam' => $this->present($exam)], 201);
     }
 
     /**
-     * Payload: { "questions": [ { question_text, options[], correct_answer }, ... ] }
+     * Payload: { "questions": [ { question_type, question_text, options[], correct_answer }, ... ] }
+     * question_type defaults to multiple_choice.
      */
     public function bulkStore(Request $request, Exam $exam)
     {
         $validated = $request->validate([
             'questions' => ['required', 'array', 'min:1', 'max:500'],
+            'questions.*.question_type' => ['nullable', Rule::in(self::QUESTION_TYPES)],
             'questions.*.question_text' => ['required', 'string'],
-            'questions.*.options' => ['required', 'array', 'min:2', 'max:8'],
-            'questions.*.options.*' => ['required', 'string', 'max:255'],
+            'questions.*.options' => ['nullable', 'array', 'max:8'],
+            'questions.*.options.*' => ['nullable', 'string', 'max:255'],
             'questions.*.correct_answer' => ['required', 'string', 'max:255'],
         ]);
 
+        $rows = [];
         foreach ($validated['questions'] as $i => $q) {
-            abort_unless(
-                in_array($q['correct_answer'], $q['options'], true),
-                422,
-                'Question '.($i + 1).': the correct answer must match one of the options.'
-            );
+            $rows[] = $this->prepare($q, 'questions', $i + 1);
         }
 
-        $exam->questions()->createMany($validated['questions']);
+        $exam->questions()->createMany($rows);
 
         return response()->json(['exam' => $this->present($exam)], 201);
     }
 
     public function updateQuestion(Request $request, ExamQuestion $question)
     {
-        $validated = $request->validate($this->rules($request));
+        $data = $this->prepare($request->validate($this->rules()), 'correct_answer');
 
-        $question->update($validated);
+        $question->update($data);
 
         return response()->json(['exam' => $this->present($question->exam)]);
     }
@@ -95,18 +101,56 @@ class ExamController extends Controller
         return response()->json(['exam' => $this->present($exam)]);
     }
 
-    private function rules(Request $request): array
+    private function rules(): array
     {
-        $options = $request->input('options');
+        return [
+            'question_type' => ['nullable', Rule::in(self::QUESTION_TYPES)],
+            'question_text' => ['required', 'string'],
+            'options' => ['nullable', 'array', 'max:8'],
+            'options.*' => ['nullable', 'string', 'max:255'],
+            'correct_answer' => ['required', 'string', 'max:255'],
+        ];
+    }
+
+    /**
+     * Normalise one question for its type: true/false always has the fixed
+     * True/False options, identification has none, and multiple choice needs
+     * 2-8 options with the correct answer among them.
+     */
+    private function prepare(array $q, string $field, ?int $position = null): array
+    {
+        $type = $q['question_type'] ?? ExamQuestion::TYPE_MULTIPLE_CHOICE;
+        $answer = trim($q['correct_answer']);
+        $options = array_values(array_filter(
+            array_map(fn ($o) => trim((string) $o), $q['options'] ?? []),
+            fn ($o) => $o !== ''
+        ));
+
+        if ($type === ExamQuestion::TYPE_TRUE_FALSE) {
+            $options = ['True', 'False'];
+            $answer = collect($options)->first(fn ($o) => strcasecmp($o, $answer) === 0);
+            $error = $answer === null ? 'the answer must be True or False.' : null;
+        } elseif ($type === ExamQuestion::TYPE_IDENTIFICATION) {
+            $options = [];
+            $error = $answer === '' ? 'identification questions need an answer.' : null;
+        } else {
+            $error = match (true) {
+                count($options) < 2 || count($options) > 8 => 'multiple choice questions need 2 to 8 options.',
+                !in_array($answer, $options, true) => 'the correct answer must match one of the options.',
+                default => null,
+            };
+        }
+
+        if ($error !== null) {
+            $prefix = $position === null ? '' : "Question {$position}: ";
+            throw ValidationException::withMessages([$field => [$prefix.$error]]);
+        }
 
         return [
-            'question_text' => ['required', 'string'],
-            'options' => ['required', 'array', 'min:2', 'max:8'],
-            'options.*' => ['required', 'string', 'max:255'],
-            'correct_answer' => array_merge(
-                ['required', 'string', 'max:255'],
-                is_array($options) ? [Rule::in($options)] : []
-            ),
+            'question_text' => $q['question_text'],
+            'question_type' => $type,
+            'options' => $options,
+            'correct_answer' => $answer,
         ];
     }
 
@@ -124,7 +168,7 @@ class ExamController extends Controller
             'questions' => $questions->map(fn ($q) => [
                 'id' => $q->id,
                 'question_text' => $q->question_text,
-                'question_type' => 'multiple_choice',
+                'question_type' => $q->question_type,
                 'options' => $q->options,
                 'correct_answer' => $q->correct_answer,
             ])->values(),

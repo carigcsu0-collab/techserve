@@ -1,3 +1,6 @@
+import 'dart:io' show File, Platform;
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +8,7 @@ import '../models/exam.dart';
 import '../models/question.dart';
 import '../providers/api_provider.dart';
 import '../services/error_messages.dart';
+import '../services/question_import.dart';
 import '../widgets/question_editor_dialog.dart';
 
 /// Admin: manage the pre-test and post-test question banks of a qualification.
@@ -152,8 +156,7 @@ class _ExamEditorState extends ConsumerState<_ExamEditor> {
   Future<void> _editQuestion({Question? question}) async {
     final draft = await showDialog<QuestionDraft>(
       context: context,
-      builder: (_) => QuestionEditorDialog(
-          question: question, multipleChoiceOnly: true),
+      builder: (_) => QuestionEditorDialog(question: question),
     );
     if (draft == null) return;
     try {
@@ -162,6 +165,7 @@ class _ExamEditorState extends ConsumerState<_ExamEditor> {
         await api.createExamQuestion(
           widget.exam.id,
           questionText: draft.questionText,
+          questionType: draft.questionType,
           options: draft.options ?? const [],
           correctAnswer: draft.correctAnswer,
         );
@@ -169,6 +173,7 @@ class _ExamEditorState extends ConsumerState<_ExamEditor> {
         await api.updateExamQuestion(
           question.id,
           questionText: draft.questionText,
+          questionType: draft.questionType,
           options: draft.options ?? const [],
           correctAnswer: draft.correctAnswer,
         );
@@ -344,49 +349,28 @@ class _ImportDialogState extends State<_ImportDialog> {
     super.dispose();
   }
 
-  void _parse() {
-    final blocks = _text.text
-        .replaceAll('\r', '')
-        .split(RegExp(r'\n\s*\n'))
-        .map((b) => b.trim())
-        .where((b) => b.isNotEmpty);
+  Future<void> _loadFile() async {
+    final mobile = Platform.isAndroid || Platform.isIOS;
+    final picked = await FilePicker.pickFile(
+      type: mobile ? FileType.any : FileType.custom,
+      allowedExtensions: mobile ? null : const ['txt', 'csv'],
+    );
+    final path = picked?.path;
+    if (path == null) return;
+    try {
+      _text.text = await File(path).readAsString();
+      if (mounted) setState(() => _error = null);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not read that file.');
+    }
+  }
 
-    final result = <Map<String, dynamic>>[];
-    var n = 0;
-    for (final block in blocks) {
-      n++;
-      final lines = block
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList();
-      final options = <String>[];
-      String? correct;
-      for (final line in lines.skip(1)) {
-        if (line.startsWith('*')) {
-          final option = line.substring(1).trim();
-          correct = option;
-          options.add(option);
-        } else {
-          options.add(line);
-        }
-      }
-      if (options.length < 2 || correct == null || correct.isEmpty) {
-        setState(() => _error =
-            'Question $n needs at least 2 options and one marked with *.');
-        return;
-      }
-      result.add({
-        'question_text': lines.first,
-        'options': options,
-        'correct_answer': correct,
-      });
+  void _parse() {
+    try {
+      Navigator.of(context).pop(parseQuestionImport(_text.text));
+    } on FormatException catch (e) {
+      setState(() => _error = e.message);
     }
-    if (result.isEmpty) {
-      setState(() => _error = 'Nothing to import.');
-      return;
-    }
-    Navigator.of(context).pop(result);
   }
 
   @override
@@ -400,15 +384,22 @@ class _ImportDialogState extends State<_ImportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'One question per block, blocks separated by a blank line.\n'
-              'First line = question, next lines = options.\n'
-              'Put * before the correct option.\n\n'
-              'Example:\nWhat does CPU stand for?\n'
-              '*Central Processing Unit\nCentral Program Unit\n'
-              'Computer Power Unit\nCore Processing Utility',
+              'Paste text or load a .txt / .csv file.\n\n'
+              'Text: one question per block, blocks separated by a blank line.\n'
+              '  Multiple choice: question, then options; put * before the correct one.\n'
+              '  True/false: start with TF: and add an Answer: True or Answer: False line.\n'
+              '  Identification: start with ID: and add an Answer: line.\n\n'
+              'CSV: header type,question,options,answer. Separate options with |.\n'
+              'Type: multiple_choice, true_false or identification.',
               style: TextStyle(fontSize: 12),
             ),
             const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Load from .txt file'),
+              onPressed: _loadFile,
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _text,
               minLines: 8,

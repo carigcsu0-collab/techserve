@@ -252,11 +252,13 @@ class ApiService {
   Future<void> createExamQuestion(
     int examId, {
     required String questionText,
+    required String questionType,
     required List<String> options,
     required String correctAnswer,
   }) async {
     await _post('/admin/exams/$examId/questions', {
       'question_text': questionText,
+      'question_type': questionType,
       'options': options,
       'correct_answer': correctAnswer,
     });
@@ -270,11 +272,13 @@ class ApiService {
   Future<void> updateExamQuestion(
     int id, {
     required String questionText,
+    required String questionType,
     required List<String> options,
     required String correctAnswer,
   }) async {
     await _put('/admin/exam-questions/$id', {
       'question_text': questionText,
+      'question_type': questionType,
       'options': options,
       'correct_answer': correctAnswer,
     });

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
+use App\Models\ExamQuestion;
 use App\Models\Lesson;
 use App\Models\Qualification;
 use App\Models\UserProgress;
@@ -41,8 +42,10 @@ class ExamController extends Controller
                 'questions' => $questions->map(fn ($q) => [
                     'id' => $q->id,
                     'question_text' => $q->question_text,
-                    'question_type' => 'multiple_choice',
-                    'options' => collect($q->options)->shuffle()->values(),
+                    'question_type' => $q->question_type,
+                    'options' => $q->question_type === ExamQuestion::TYPE_IDENTIFICATION
+                        ? []
+                        : collect($q->options)->shuffle()->values(),
                 ])->values(),
             ],
         ]);
@@ -70,7 +73,7 @@ class ExamController extends Controller
         $total = $exam->itemsFor($bank->count());
 
         $correct = collect($validated['answers'])
-            ->filter(fn ($answer, $id) => $bank->has((int) $id) && $answer === $bank[(int) $id]->correct_answer)
+            ->filter(fn ($answer, $id) => $bank->has((int) $id) && $bank[(int) $id]->isCorrect($answer))
             ->count();
         $correct = min($correct, $total);
 
