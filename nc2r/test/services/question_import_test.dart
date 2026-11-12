@@ -103,4 +103,32 @@ identification,"Who wrote ""Noli""?",,Rizal
   test('empty input is rejected', () {
     expect(() => parseQuestionImport('  \n '), throwsFormatException);
   });
+
+  group('question bank csv', () {
+    test('maps option letters and quoted cells, and strips a BOM', () {
+      final result = parseQuestionImport('\uFEFF'
+          'Question,Option A,Option B,Option C,Option D,Correct Answer\r\n'
+          'What tool attaches an RJ45 connector?,Wire Stripper,Punch-down Tool,Crimping Tool,Pliers,C\r\n'
+          '"Which standard starts with White-Orange, Orange?",T568A,T568B,Crossover,Rollover,b\r\n'
+          'Which key opens BIOS?,F2 or DEL,ESC,SPACEBAR,ALT+F4,F2 or DEL\r\n');
+
+      expect(result, hasLength(3));
+      expect(result[0]['question_type'], 'multiple_choice');
+      expect(result[0]['options'],
+          ['Wire Stripper', 'Punch-down Tool', 'Crimping Tool', 'Pliers']);
+      expect(result[0]['correct_answer'], 'Crimping Tool');
+      expect(result[1]['question_text'],
+          'Which standard starts with White-Orange, Orange?');
+      expect(result[1]['correct_answer'], 'T568B');
+      expect(result[2]['correct_answer'], 'F2 or DEL');
+    });
+
+    test('rejects a letter answer with no matching option', () {
+      expect(
+        () => parseQuestionImport(
+            'Question,Option A,Option B,Correct Answer\nQ?,x,y,D'),
+        throwsFormatException,
+      );
+    });
+  });
 }

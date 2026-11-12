@@ -389,7 +389,8 @@ class _ImportDialogState extends State<_ImportDialog> {
               '  Multiple choice: question, then options; put * before the correct one.\n'
               '  True/false: start with TF: and add an Answer: True or Answer: False line.\n'
               '  Identification: start with ID: and add an Answer: line.\n\n'
-              'CSV: header type,question,options,answer. Separate options with |.\n'
+              'CSV (question bank): Question,Option A,Option B,Option C,Option D,Correct Answer.\n'
+              'CSV (typed): type,question,options,answer with options separated by |.\n'
               'Type: multiple_choice, true_false or identification.',
               style: TextStyle(fontSize: 12),
             ),

@@ -11,6 +11,11 @@
 ///   ID: Capital of France?      <- identification (typed answer)
 ///   Answer: Paris
 ///
+/// Question bank CSV (header row required, one question per line):
+///   Question,Option A,Option B,Option C,Option D,Correct Answer
+///   What does CPU stand for?,Central Processing Unit,Central Program Unit,...,A
+/// The answer can be the option letter or the option text.
+///
 /// CSV (header row required, one question per line):
 ///   type,question,options,answer
 ///   multiple_choice,What does CPU stand for?,Central Processing Unit|Central Program Unit,Central Processing Unit
@@ -18,13 +23,19 @@
 ///   identification,Capital of France?,,Paris
 /// Options are separated by |. The type may also be mc, tf or id.
 List<Map<String, dynamic>> parseQuestionImport(String raw) {
-  final text = raw.replaceAll('\r', '').trim();
+  final text = raw.replaceAll('\r', '').replaceFirst('\uFEFF', '').trim();
   if (text.isEmpty) throw const FormatException('Nothing to import.');
 
   final firstLine = text.split('\n').first.trim().toLowerCase();
-  final questions = firstLine.startsWith('type,')
-      ? _parseCsv(text)
-      : _parseBlocks(text);
+  final List<Map<String, dynamic>> questions;
+  if (firstLine.startsWith('type,')) {
+    questions = _parseCsv(text);
+  } else if (firstLine.startsWith('question,') &&
+      firstLine.contains('correct answer')) {
+    questions = _parseQuestionBank(text);
+  } else {
+    questions = _parseBlocks(text);
+  }
   if (questions.isEmpty) throw const FormatException('Nothing to import.');
   return questions;
 }
@@ -115,6 +126,46 @@ List<Map<String, dynamic>> _parseCsv(String text) {
         .where((o) => o.isNotEmpty)
         .toList();
     result.add(_build(i, type, cell(questionCol), options, cell(answerCol)));
+  }
+  return result;
+}
+
+List<Map<String, dynamic>> _parseQuestionBank(String text) {
+  final rows = text
+      .split('\n')
+      .map((l) => l.trim())
+      .where((l) => l.isNotEmpty)
+      .toList();
+
+  final header = _splitCsvLine(rows.first).map((h) => h.toLowerCase()).toList();
+  final questionCol = header.indexOf('question');
+  final answerCol = header.indexOf('correct answer');
+  final optionCols = [
+    for (var c = 0; c < header.length; c++)
+      if (RegExp(r'^option\s+[a-z]$').hasMatch(header[c])) c,
+  ];
+  if (questionCol == -1 || answerCol == -1 || optionCols.length < 2) {
+    throw const FormatException(
+        'The CSV header must be: Question,Option A,Option B,...,Correct Answer');
+  }
+
+  final result = <Map<String, dynamic>>[];
+  for (var i = 1; i < rows.length; i++) {
+    final cells = _splitCsvLine(rows[i]);
+    String cell(int c) => c < cells.length ? cells[c] : '';
+
+    final options = <String>[];
+    final byLetter = <String, String>{};
+    for (final c in optionCols) {
+      final value = cell(c);
+      if (value.isEmpty) continue;
+      options.add(value);
+      byLetter[header[c].split(' ').last.toUpperCase()] = value;
+    }
+    final answer = cell(answerCol);
+    final resolved = byLetter[answer.toUpperCase()] ?? answer;
+    result.add(
+        _build(i, _multipleChoice, cell(questionCol), options, resolved));
   }
   return result;
 }
